@@ -3,9 +3,11 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
-
-/// A JSON object returned by the Wiro API.
-typedef WiroJson = Map<String, Object?>;
+import 'package:wiro_ai/src/model/json_reader.dart';
+import 'package:wiro_ai/src/model/wiro_json.dart';
+import 'package:wiro_ai/src/model/wiro_model.dart';
+import 'package:wiro_ai/src/model/wiro_result.dart';
+import 'package:wiro_ai/src/model/wiro_task.dart';
 
 /// Authentication method used by [WiroClient].
 enum WiroAuthType { apiKey, signature }
@@ -50,11 +52,6 @@ final class WiroClient {
 
   static final Uri defaultBaseUri = Uri.parse('https://api.wiro.ai/v1');
 
-  static const Set<String> terminalTaskStatuses = {
-    'task_postprocess_end',
-    'task_cancel',
-  };
-
   final String _apiKey;
   final String? _apiSecret;
   final String _baseUrl;
@@ -67,7 +64,7 @@ final class WiroClient {
   }
 
   /// Searches the models available on Wiro.
-  Future<WiroJson> searchModels({
+  Future<WiroPaginatedResult<WiroModel>> searchModels({
     String search = '',
     List<String> categories = const [],
     int start = 0,
@@ -76,55 +73,86 @@ final class WiroClient {
     String? owner,
     String? order,
   }) {
-    return _post('/Tool/List', {
-      'start': '$start',
-      'limit': '$limit',
-      'search': search,
-      'categories': categories,
-      'sort': sort,
-      'hideworkflows': true,
-      'summary': true,
-      'slugowner': ?owner,
-      'order': ?order,
-    });
+    return _post(
+      '/Tool/List',
+      {
+        'start': '$start',
+        'limit': '$limit',
+        'search': search,
+        'categories': categories,
+        'sort': sort,
+        'hideworkflows': true,
+        'summary': true,
+        'slugowner': ?owner,
+        'order': ?order,
+      },
+      (json) {
+        return WiroPaginatedResult.fromJson(
+          json,
+          itemsKey: 'tool',
+          itemFromJson: WiroModel.fromJson,
+        );
+      },
+    );
   }
 
   /// Returns curated model categories.
-  Future<WiroJson> explore() => _post('/Tool/Explore', const {});
+  Future<List<WiroExploreCategory>> explore() {
+    return _post('/Tool/Explore', const {}, (json) {
+      final categories = JsonReader.list(json['explore'])
+          .map(JsonReader.map)
+          .where((item) => item.isNotEmpty)
+          .map(WiroExploreCategory.fromJson);
+      return List.unmodifiable(categories);
+    });
+  }
 
   /// Returns the input schema for [model].
-  Future<WiroJson> getModelSchema(String model) {
+  Future<WiroModelSchema> getModelSchema(String model) {
     final (:owner, :project) = _parseModel(model);
-    return _post('/Tool/Detail', {'slugowner': owner, 'slugproject': project});
+    return _post('/Tool/Detail', {
+      'slugowner': owner,
+      'slugproject': project,
+    }, _modelSchemaFromResponse);
   }
 
   /// Starts [model] with the supplied [parameters].
-  Future<WiroJson> runModel(String model, {WiroJson parameters = const {}}) {
+  Future<WiroRunResult> runModel(
+    String model, {
+    WiroJson parameters = const {},
+  }) {
     final (:owner, :project) = _parseModel(model);
-    return _post('/Run/$owner/$project', parameters);
+    return _post('/Run/$owner/$project', parameters, WiroRunResult.fromJson);
   }
 
   /// Returns task details using a task token or task ID.
-  Future<WiroJson> getTask({String? taskToken, String? taskId}) {
+  Future<WiroTask> getTask({String? taskToken, String? taskId}) {
     if (taskToken == null && taskId == null) {
       throw ArgumentError('taskToken or taskId is required');
     }
 
-    return _post('/Task/Detail', {'tasktoken': ?taskToken, 'taskid': ?taskId});
+    return _post('/Task/Detail', {
+      'tasktoken': ?taskToken,
+      'taskid': ?taskId,
+    }, _taskFromResponse);
   }
 
   /// Requests cancellation of a queued task.
-  Future<WiroJson> cancelTask(String taskToken) {
-    return _post('/Task/Cancel', {'tasktoken': taskToken});
+  Future<bool> cancelTask(String taskToken) {
+    return _post('/Task/Cancel', {
+      'tasktoken': taskToken,
+    }, (json) => JsonReader.boolean(json['result']));
   }
 
   /// Stops a running task.
-  Future<WiroJson> killTask(String taskToken) {
-    return _post('/Task/Kill', {'tasktoken': taskToken});
+  Future<bool> killTask(String taskToken) {
+    return _post('/Task/Kill', {
+      'tasktoken': taskToken,
+    }, (json) => JsonReader.boolean(json['result']));
   }
 
   /// Uploads [bytes] to Wiro.
-  Future<WiroJson> uploadFile(
+  Future<WiroUploadResult> uploadFile(
     List<int> bytes, {
     required String fileName,
   }) async {
@@ -139,21 +167,20 @@ final class WiroClient {
 
     final streamedResponse = await _httpClient.send(request);
     final response = await http.Response.fromStream(streamedResponse);
-    return _decodeResponse(response);
+    return WiroUploadResult.fromJson(_decodeResponse(response));
   }
 
   /// Polls until a task reaches a terminal status.
-  Future<WiroJson> waitForTask(
+  Future<WiroTask> waitForTask(
     String taskToken, {
     Duration timeout = const Duration(minutes: 2),
   }) async {
     final deadline = DateTime.now().add(timeout);
 
     while (DateTime.now().isBefore(deadline)) {
-      final detail = await getTask(taskToken: taskToken);
-      final status = _firstTaskStatus(detail);
-      if (status != null && terminalTaskStatuses.contains(status)) {
-        return detail;
+      final task = await getTask(taskToken: taskToken);
+      if (task.status.isTerminal) {
+        return task;
       }
       await Future<void>.delayed(pollInterval);
     }
@@ -167,13 +194,17 @@ final class WiroClient {
   /// Releases the underlying HTTP client.
   void close() => _httpClient.close();
 
-  Future<WiroJson> _post(String path, WiroJson body) async {
+  Future<T> _post<T>(
+    String path,
+    WiroJson body,
+    T Function(WiroJson json) fromJson,
+  ) async {
     final response = await _httpClient.post(
       Uri.parse('$_baseUrl$path'),
       headers: _authHeaders(),
       body: jsonEncode(body),
     );
-    return _decodeResponse(response);
+    return fromJson(_decodeResponse(response));
   }
 
   Map<String, String> _authHeaders({bool includeContentType = true}) {
@@ -232,12 +263,24 @@ final class WiroClient {
     );
   }
 
-  static String? _firstTaskStatus(WiroJson detail) {
-    final tasks = detail['tasklist'];
-    if (tasks case [final Map<Object?, Object?> first, ...]) {
-      return first['status'] as String?;
+  static WiroModelSchema _modelSchemaFromResponse(WiroJson json) {
+    final models = JsonReader.list(json['tool']);
+    if (models.isEmpty) {
+      throw const WiroApiException(
+        message: 'The model schema response did not contain a model',
+      );
     }
-    return null;
+    return WiroModelSchema.fromJson(JsonReader.map(models.first));
+  }
+
+  static WiroTask _taskFromResponse(WiroJson json) {
+    final tasks = JsonReader.list(json['tasklist']);
+    if (tasks.isEmpty) {
+      throw const WiroApiException(
+        message: 'The task response did not contain a task',
+      );
+    }
+    return WiroTask.fromJson(JsonReader.map(tasks.first));
   }
 
   static String _normalizeBaseUrl(Uri uri) {
