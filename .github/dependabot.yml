@@ -1,0 +1,25 @@
+version: 2
+
+updates:
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dart-dependencies:
+        patterns:
+          - '*'
+
+  - package-ecosystem: pub
+    directory: /example
+    schedule:
+      interval: weekly
+    groups:
+      example-dependencies:
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -4,8 +4,10 @@ import 'package:wiro_ai/src/model/wiro_model.dart';
 
 /// An error included in a Wiro API response.
 final class WiroApiError {
+  /// Creates an API error.
   const WiroApiError({required this.message, this.code});
 
+  /// Creates an API error from a Wiro payload.
   factory WiroApiError.fromJson(WiroJson json) {
     return WiroApiError(
       code: json['code'],
@@ -13,12 +15,16 @@ final class WiroApiError {
     );
   }
 
+  /// Machine-readable error code, when provided.
   final Object? code;
+
+  /// Human-readable error message.
   final String message;
 }
 
 /// A typed paginated response from Wiro.
 final class WiroPaginatedResult<T> {
+  /// Creates a paginated result.
   const WiroPaginatedResult({
     required this.isSuccess,
     required this.total,
@@ -27,6 +33,7 @@ final class WiroPaginatedResult<T> {
     required this.raw,
   });
 
+  /// Parses a paginated response using [itemFromJson] for each item.
   factory WiroPaginatedResult.fromJson(
     WiroJson json, {
     required String itemsKey,
@@ -47,9 +54,16 @@ final class WiroPaginatedResult<T> {
     );
   }
 
+  /// Whether Wiro marked the request as successful.
   final bool isSuccess;
+
+  /// Total number of available items.
   final int total;
+
+  /// Items returned on this page.
   final List<T> items;
+
+  /// API errors returned with the response.
   final List<WiroApiError> errors;
 
   /// Original API payload for forward-compatible access.
@@ -58,6 +72,7 @@ final class WiroPaginatedResult<T> {
 
 /// Result returned immediately after starting a model.
 final class WiroRunResult {
+  /// Creates a model-run result.
   const WiroRunResult({
     required this.isSuccess,
     required this.taskId,
@@ -66,6 +81,7 @@ final class WiroRunResult {
     required this.raw,
   });
 
+  /// Creates a model-run result from a Wiro payload.
   factory WiroRunResult.fromJson(WiroJson json) {
     return WiroRunResult(
       isSuccess: JsonReader.boolean(json['result']),
@@ -76,12 +92,16 @@ final class WiroRunResult {
     );
   }
 
+  /// Whether Wiro accepted the model run.
   final bool isSuccess;
+
+  /// Server-side task identifier.
   final String taskId;
 
   /// Token used to poll or subscribe to the task.
   final String taskToken;
 
+  /// API errors returned with the response.
   final List<WiroApiError> errors;
 
   /// Original API payload for forward-compatible access.
@@ -90,6 +110,7 @@ final class WiroRunResult {
 
 /// Result of a file upload.
 final class WiroUploadResult {
+  /// Creates an upload result.
   const WiroUploadResult({
     required this.isSuccess,
     required this.files,
@@ -97,6 +118,7 @@ final class WiroUploadResult {
     required this.raw,
   });
 
+  /// Creates an upload result from a Wiro payload.
   factory WiroUploadResult.fromJson(WiroJson json) {
     final files = JsonReader.list(json['list'])
         .map(JsonReader.map)
@@ -112,8 +134,13 @@ final class WiroUploadResult {
     );
   }
 
+  /// Whether Wiro accepted the upload.
   final bool isSuccess;
+
+  /// Files created by the upload.
   final List<WiroUploadedFile> files;
+
+  /// API errors returned with the response.
   final List<WiroApiError> errors;
 
   /// Original API payload for forward-compatible access.
@@ -122,6 +149,7 @@ final class WiroUploadResult {
 
 /// A file stored by Wiro.
 final class WiroUploadedFile {
+  /// Creates an uploaded file descriptor.
   const WiroUploadedFile({
     required this.id,
     required this.name,
@@ -131,6 +159,7 @@ final class WiroUploadedFile {
     required this.raw,
   });
 
+  /// Creates a file descriptor from a Wiro payload.
   factory WiroUploadedFile.fromJson(WiroJson json) {
     return WiroUploadedFile(
       id: JsonReader.string(json['id']) ?? '',
@@ -142,10 +171,19 @@ final class WiroUploadedFile {
     );
   }
 
+  /// Wiro file identifier.
   final String id;
+
+  /// Original file name.
   final String name;
+
+  /// MIME content type.
   final String contentType;
+
+  /// File size in bytes.
   final int size;
+
+  /// Public or authenticated file URL.
   final Uri? url;
 
   /// Original API payload for forward-compatible access.
@@ -154,6 +192,7 @@ final class WiroUploadedFile {
 
 /// A curated group returned by the Explore API.
 final class WiroExploreCategory {
+  /// Creates an explore category.
   const WiroExploreCategory({
     required this.id,
     required this.title,
@@ -162,6 +201,7 @@ final class WiroExploreCategory {
     this.url,
   });
 
+  /// Creates an explore category from a Wiro payload.
   factory WiroExploreCategory.fromJson(WiroJson json) {
     final models = JsonReader.list(json['tools'])
         .map(JsonReader.map)
@@ -178,10 +218,19 @@ final class WiroExploreCategory {
     );
   }
 
+  /// Category identifier.
   final String id;
+
+  /// Display title.
   final String title;
+
+  /// Curated models in this category.
   final List<WiroModel> models;
+
+  /// Total number of models in this category.
   final int total;
+
+  /// Optional category URL.
   final Uri? url;
 }
 

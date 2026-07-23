@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  quality:
+    name: Flutter ${{ matrix.flutter }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter:
+          - 3.32.8
+          - 3.44.7
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ matrix.flutter }}
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check formatting
+        run: >-
+          dart format
+          --output=none
+          --set-exit-if-changed
+          lib test tool example/lib example/test example/bin
+
+      - name: Analyze SDK
+        run: dart analyze
+
+      - name: Test SDK
+        run: dart test
+
+      - name: Analyze Flutter example
+        working-directory: example
+        run: flutter analyze
+
+      - name: Test Flutter example
+        working-directory: example
+        run: flutter test
+
+      - name: Collect coverage
+        if: matrix.flutter == '3.44.7'
+        run: |
+          dart test --coverage=coverage
+          dart run coverage:format_coverage \
+            --lcov \
+            --in=coverage \
+            --out=coverage/lcov.info \
+            --packages=.dart_tool/package_config.json \
+            --report-on=lib
+          dart run tool/check_coverage.dart coverage/lcov.info 90
+
+      - name: Upload coverage
+        if: matrix.flutter == '3.44.7'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+          use_oidc: true
+
+      - name: Validate package
+        if: matrix.flutter == '3.44.7'
+        run: dart pub publish --dry-run

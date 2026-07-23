@@ -1,3 +1,6 @@
+// Internal parsing helpers are not part of the exported public API.
+// ignore_for_file: public_member_api_docs
+
 import 'dart:convert';
 
 import 'package:wiro_ai/src/model/wiro_json.dart';

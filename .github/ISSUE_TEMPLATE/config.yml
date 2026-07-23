@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Wiro documentation
+    url: https://wiro.ai/docs
+    about: Read API guides and reference documentation.
+  - name: Wiro support
+    url: https://wiro.ai
+    about: Ask account, billing, or service availability questions.

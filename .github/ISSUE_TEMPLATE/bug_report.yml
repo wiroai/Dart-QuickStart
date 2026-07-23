@@ -1,0 +1,63 @@
+name: Bug report
+description: Report reproducible SDK behavior that appears incorrect.
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API keys, API secrets, or private model inputs.
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: Dart or Flutter version
+      placeholder: Dart 3.8.0 or Flutter 3.32.8
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Dart VM
+        - Android
+        - iOS
+        - Web
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the smallest safe code sample that reproduces it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

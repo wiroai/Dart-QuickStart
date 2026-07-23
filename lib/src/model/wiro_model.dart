@@ -3,6 +3,7 @@ import 'package:wiro_ai/src/model/wiro_json.dart';
 
 /// A model available through Wiro.
 final class WiroModel {
+  /// Creates a Wiro model.
   const WiroModel({
     required this.id,
     required this.owner,
@@ -22,6 +23,7 @@ final class WiroModel {
     this.taskStats,
   });
 
+  /// Creates a model from a Wiro API payload.
   factory WiroModel.fromJson(WiroJson json) {
     return WiroModel(
       id: JsonReader.string(json['id']) ?? '',
@@ -51,20 +53,49 @@ final class WiroModel {
     );
   }
 
+  /// Stable model identifier.
   final String id;
+
+  /// Model owner slug.
   final String owner;
+
+  /// Model project slug.
   final String slug;
+
+  /// Display title.
   final String? title;
+
+  /// Human-readable model description.
   final String? description;
+
+  /// Search-optimized description.
   final String? seoDescription;
+
+  /// Model cover image.
   final Uri? imageUrl;
+
+  /// Categories assigned by Wiro.
   final List<String> categories;
+
+  /// Search and discovery tags.
   final List<String> tags;
+
+  /// Sample output URLs.
   final List<String> samples;
+
+  /// Approximate processing time reported by Wiro.
   final String? computingTime;
+
+  /// Approximate cost reported by Wiro.
   final String? approximateCost;
+
+  /// Dynamic pricing descriptor.
   final String? dynamicPrice;
+
+  /// Cost-per-second descriptor.
   final String? cps;
+
+  /// Aggregate execution statistics.
   final WiroModelTaskStats? taskStats;
 
   /// Original API payload for forward-compatible access.
@@ -76,6 +107,7 @@ final class WiroModel {
 
 /// Aggregate execution statistics for a model.
 final class WiroModelTaskStats {
+  /// Creates model task statistics.
   const WiroModelTaskStats({
     required this.runCount,
     required this.successCount,
@@ -83,6 +115,7 @@ final class WiroModelTaskStats {
     this.lastRunTime,
   });
 
+  /// Creates statistics from a Wiro API payload.
   factory WiroModelTaskStats.fromJson(WiroJson json) {
     return WiroModelTaskStats(
       runCount: JsonReader.integer(json['runcount']),
@@ -92,20 +125,29 @@ final class WiroModelTaskStats {
     );
   }
 
+  /// Total number of model runs.
   final int runCount;
+
+  /// Number of successful runs.
   final int successCount;
+
+  /// Number of failed runs.
   final int errorCount;
+
+  /// Timestamp of the most recent run.
   final String? lastRunTime;
 }
 
 /// Full input schema for a Wiro model.
 final class WiroModelSchema {
+  /// Creates a model schema.
   const WiroModelSchema({
     required this.model,
     required this.parameterGroups,
     this.readme,
   });
 
+  /// Creates a schema from a model-detail payload.
   factory WiroModelSchema.fromJson(WiroJson json) {
     final groups = JsonReader.list(json['parameters'])
         .map(JsonReader.map)
@@ -120,8 +162,13 @@ final class WiroModelSchema {
     );
   }
 
+  /// Model described by this schema.
   final WiroModel model;
+
+  /// Parameter groups in display order.
   final List<WiroModelParameterGroup> parameterGroups;
+
+  /// Optional model documentation.
   final String? readme;
 
   /// All model parameters in display order.
@@ -134,11 +181,13 @@ final class WiroModelSchema {
 
 /// A visual group of model parameters.
 final class WiroModelParameterGroup {
+  /// Creates a parameter group.
   const WiroModelParameterGroup({
     required this.title,
     required this.parameters,
   });
 
+  /// Creates a parameter group from a Wiro API payload.
   factory WiroModelParameterGroup.fromJson(WiroJson json) {
     final parameters = JsonReader.list(json['items'])
         .map(JsonReader.map)
@@ -152,12 +201,16 @@ final class WiroModelParameterGroup {
     );
   }
 
+  /// Group heading.
   final String title;
+
+  /// Parameters contained by this group.
   final List<WiroModelParameter> parameters;
 }
 
 /// A single accepted model parameter.
 final class WiroModelParameter {
+  /// Creates a model parameter.
   const WiroModelParameter({
     required this.id,
     required this.type,
@@ -173,6 +226,7 @@ final class WiroModelParameter {
     this.step,
   });
 
+  /// Creates a parameter from a Wiro API payload.
   factory WiroModelParameter.fromJson(WiroJson json) {
     final options = JsonReader.list(json['options'])
         .map(JsonReader.map)
@@ -196,24 +250,49 @@ final class WiroModelParameter {
     );
   }
 
+  /// Parameter identifier sent to the API.
   final String id;
+
+  /// Wiro input type such as `textarea`, `select`, or `fileinput`.
   final String type;
+
+  /// Display label.
   final String label;
+
+  /// Human-readable guidance.
   final String? description;
+
+  /// Default parameter value.
   final Object? defaultValue;
+
+  /// Whether callers must provide this parameter.
   final bool isRequired;
+
+  /// Suggested input placeholder.
   final String? placeholder;
+
+  /// Additional usage note.
   final String? note;
+
+  /// Accepted values for select-like parameters.
   final List<WiroModelParameterOption> options;
+
+  /// Minimum numeric value.
   final double? minimum;
+
+  /// Maximum numeric value.
   final double? maximum;
+
+  /// Numeric increment.
   final double? step;
 }
 
 /// An option accepted by a select-like parameter.
 final class WiroModelParameterOption {
+  /// Creates a model parameter option.
   const WiroModelParameterOption({required this.label, required this.value});
 
+  /// Creates an option from a Wiro API payload.
   factory WiroModelParameterOption.fromJson(WiroJson json) {
     return WiroModelParameterOption(
       label: JsonReader.string(json['label']) ?? '',
@@ -221,6 +300,9 @@ final class WiroModelParameterOption {
     );
   }
 
+  /// Display label.
   final String label;
+
+  /// Value sent to the Wiro API.
   final String value;
 }
