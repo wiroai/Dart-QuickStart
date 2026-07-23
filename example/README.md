@@ -1,13 +1,16 @@
 # Wiro AI Flutter example
 
-A minimal iOS and Android application that explores the models available on
-Wiro using the `wiro_client` package.
+A minimal text-to-image Flutter application using `WiroClient.subscribe`.
+Enter a prompt, follow the polled task status, and display the generated image.
 
 Run the application locally:
 
 ```bash
 flutter run --dart-define=WIRO_API_KEY=your-api-key
 ```
+
+Projects using signature authentication can also provide
+`--dart-define=WIRO_API_SECRET=your-api-secret`.
 
 Run the image and video examples:
 
@@ -20,3 +23,5 @@ Both generation examples use `subscribe` to submit and await the task. The
 video example also prints each polled status update.
 
 Do not embed long-lived API credentials in production mobile builds.
+Route production requests through your backend and keep Wiro credentials
+server-side.
