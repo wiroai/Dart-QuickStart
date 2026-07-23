@@ -16,7 +16,7 @@ WIRO_API_KEY=your-api-key dart run bin/generate_image.dart
 WIRO_API_KEY=your-api-key dart run bin/generate_video.dart
 ```
 
-The video example allows up to ten minutes for long-running generation tasks
-and treats a terminal task as successful only when its exit code is `0`.
+Both generation examples use `subscribe` to submit and await the task. The
+video example also prints each polled status update.
 
 Do not embed long-lived API credentials in production mobile builds.

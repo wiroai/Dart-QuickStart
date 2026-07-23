@@ -12,7 +12,7 @@ Future<void> main() async {
 
   final client = WiroClient(apiKey: apiKey);
   try {
-    final run = await client.runModel(
+    final task = await client.subscribe(
       'black-forest-labs/flux-2-pro',
       parameters: {
         'prompt': 'A cinematic mountain lake at sunrise',
@@ -21,11 +21,7 @@ Future<void> main() async {
         'outputFormat': 'png',
       },
     );
-    final task = await client.waitForTask(run.taskToken);
 
-    if (!task.isSuccessful) {
-      throw StateError(task.debugOutput ?? 'Image generation failed.');
-    }
     for (final output in task.outputs) {
       stdout.writeln(output.url);
     }

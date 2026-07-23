@@ -9,6 +9,9 @@
 - Add request cancellation, configurable retries, backoff, timeouts, and
   structured logging.
 - Add task progress streams.
+- Add `subscribe` for one-call model execution and task polling.
+- Add explicit `callbackUrl` support for completion webhooks.
+- Add `WiroTaskFailedException` for unsuccessful terminal tasks.
 - Add Flutter, image-generation, and video-generation examples.
 - Add strict analysis, 90% coverage enforcement, CI, and trusted publishing.
 - Handle application-level API failures with a typed exception.
