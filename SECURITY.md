@@ -2,7 +2,8 @@
 
 ## Supported versions
 
-Security fixes are provided for the latest published minor version.
+Security fixes are provided for the latest published release. During the
+pre-1.0 period, only the latest `0.x` release is supported.
 
 ## Reporting a vulnerability
 

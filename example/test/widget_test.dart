@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wiro_ai_example/main.dart';
+import 'package:wiro_client_example/main.dart';
 
 void main() {
   testWidgets('shows API key instructions', (tester) async {

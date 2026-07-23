@@ -1,5 +1,5 @@
-import 'package:wiro_ai/src/model/json_reader.dart';
-import 'package:wiro_ai/src/model/wiro_json.dart';
+import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_json.dart';
 
 /// A model available through Wiro.
 final class WiroModel {

@@ -16,7 +16,7 @@ sealed class WiroException implements Exception {
   String toString() => message;
 }
 
-/// Base class for non-successful HTTP responses from the Wiro API.
+/// Base class for failures reported by the Wiro API.
 sealed class WiroApiException extends WiroException {
   /// Creates an API exception.
   const WiroApiException(
@@ -31,6 +31,23 @@ sealed class WiroApiException extends WiroException {
 
   /// Unmodified response body returned by Wiro.
   final String responseBody;
+}
+
+/// Indicates that Wiro rejected a request in an HTTP 2xx response.
+///
+/// Wiro responses can report application-level failures with
+/// `result: false` and an `errors` collection.
+final class WiroApiResultException extends WiroApiException {
+  /// Creates an application-level API exception.
+  const WiroApiResultException(
+    super.message, {
+    required super.statusCode,
+    required super.responseBody,
+    this.code,
+  });
+
+  /// Machine-readable Wiro error code, when supplied.
+  final Object? code;
 }
 
 /// Indicates that the supplied Wiro credentials were rejected.

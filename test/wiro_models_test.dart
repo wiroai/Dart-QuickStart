@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:wiro_ai/wiro_ai.dart';
+import 'package:wiro_client/wiro_client.dart';
 
 void main() {
   group('WiroModelSchema', () {
@@ -202,14 +202,22 @@ void main() {
 
   group('WiroApiError', () {
     test('parses response errors and fallbacks', () {
-      final errors = parseWiroApiErrors([
-        {'code': 42, 'message': 'Invalid input'},
-        <String, Object?>{},
-      ]);
+      final result = WiroPaginatedResult<WiroModel>.fromJson(
+        {
+          'result': false,
+          'errors': [
+            {'code': 42, 'message': 'Invalid input'},
+            <String, Object?>{},
+          ],
+          'tool': <Object?>[],
+        },
+        itemsKey: 'tool',
+        itemFromJson: WiroModel.fromJson,
+      );
       final fallback = WiroApiError.fromJson(const {});
 
-      expect(errors.single.code, 42);
-      expect(errors.single.message, 'Invalid input');
+      expect(result.errors.single.code, 42);
+      expect(result.errors.single.message, 'Invalid input');
       expect(fallback.message, 'Unknown Wiro API error');
     });
   });
