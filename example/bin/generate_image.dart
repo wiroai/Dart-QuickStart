@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wiro_ai/wiro_ai.dart';
+import 'package:wiro_client/wiro_client.dart';
 
 Future<void> main() async {
   final apiKey = Platform.environment['WIRO_API_KEY'];

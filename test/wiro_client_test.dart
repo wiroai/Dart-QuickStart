@@ -5,12 +5,19 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
-import 'package:wiro_ai/wiro_ai.dart';
+import 'package:wiro_client/wiro_client.dart';
 
 void main() {
   group('WiroClient configuration', () {
     test('rejects an empty API key', () {
       expect(() => WiroClient(apiKey: ''), throwsArgumentError);
+    });
+
+    test('rejects an empty API secret', () {
+      expect(
+        () => WiroClient(apiKey: 'key', apiSecret: '  '),
+        throwsArgumentError,
+      );
     });
 
     test('rejects invalid timeout and polling values', () {
@@ -28,6 +35,20 @@ void main() {
         ),
         throwsArgumentError,
       );
+    });
+
+    test('rejects unsafe base URI shapes', () {
+      for (final uri in [
+        Uri.parse('ftp://api.wiro.ai/v1'),
+        Uri.parse('https://key@api.wiro.ai/v1'),
+        Uri.parse('https://api.wiro.ai/v1?key=value'),
+        Uri.parse('https://api.wiro.ai/v1#fragment'),
+      ]) {
+        expect(
+          () => WiroClient(apiKey: 'key', baseUri: uri),
+          throwsArgumentError,
+        );
+      }
     });
 
     test('uses API key authentication', () async {
@@ -90,6 +111,24 @@ void main() {
       expect(response.items.single.identifier, 'openai/sora-2');
     });
 
+    test('validates pagination bounds', () {
+      final client = WiroClient(apiKey: 'test-key');
+
+      expect(
+        () => client.searchModels(start: -1),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.searchModels(limit: 0),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.searchModels(limit: 101),
+        throwsArgumentError,
+      );
+      client.close();
+    });
+
     test('returns a typed model schema', () async {
       final client = WiroClient(
         apiKey: 'test-key',
@@ -134,6 +173,14 @@ void main() {
         () => client.getModelSchema('invalid'),
         throwsArgumentError,
       );
+      expect(
+        () => client.getModelSchema('owner/model/extra'),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.getModelSchema('../model'),
+        throwsArgumentError,
+      );
     });
   });
 
@@ -161,6 +208,10 @@ void main() {
       );
 
       expect(client.getTask, throwsArgumentError);
+      expect(
+        () => client.getTask(taskToken: ' '),
+        throwsArgumentError,
+      );
     });
 
     test('waits until the task is terminal', () async {
@@ -221,6 +272,24 @@ void main() {
       );
     });
 
+    test('rejects invalid task polling values', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((_) async {
+          return _jsonResponse(_runningTaskResponse);
+        }),
+      );
+
+      await expectLater(
+        client.watchTask(' ').toList(),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.watchTask('task-token', timeout: Duration.zero).toList(),
+        throwsArgumentError,
+      );
+    });
+
     test('cancels and kills tasks', () async {
       final paths = <String>[];
       final client = WiroClient(
@@ -258,11 +327,88 @@ void main() {
 
       expect(result.files.single.name, 'photo.png');
     });
+
+    test('uploads a byte stream as multipart data', () async {
+      final bytes = utf8.encode('stream-data');
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient.streaming((request, bodyStream) async {
+          final body = utf8.decode(await bodyStream.toBytes());
+          expect(body, contains('stream.bin'));
+          expect(body, contains('stream-data'));
+          return _streamedJsonResponse(_uploadResponse);
+        }),
+      );
+
+      final result = await client.uploadStream(
+        Stream.value(bytes),
+        contentLength: bytes.length,
+        fileName: 'stream.bin',
+      );
+
+      expect(result.isSuccess, isTrue);
+    });
+
+    test('validates upload metadata', () {
+      final client = WiroClient(apiKey: 'test-key');
+
+      expect(
+        () => client.uploadFile(const [], fileName: ' '),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.uploadStream(
+          const Stream.empty(),
+          contentLength: -1,
+          fileName: 'file.bin',
+        ),
+        throwsArgumentError,
+      );
+      client.close();
+    });
   });
 
   group('WiroClient failures', () {
+    test('maps application-level failures to a typed exception', () async {
+      final events = <WiroLogEvent>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        logger: events.add,
+        httpClient: MockClient(
+          (_) async => _jsonResponse(
+            const {
+              'result': false,
+              'errors': [
+                {'code': 97, 'message': 'Insufficient balance'},
+              ],
+            },
+          ),
+        ),
+      );
+
+      await expectLater(
+        client.runModel('wiro/demo'),
+        throwsA(
+          isA<WiroApiResultException>()
+              .having((error) => error.code, 'code', 97)
+              .having(
+                (error) => error.message,
+                'message',
+                'Insufficient balance',
+              ),
+        ),
+      );
+      expect(
+        events.where((event) => event.level == WiroLogLevel.error),
+        hasLength(1),
+      );
+      expect(events.last.error, isNull);
+    });
+
     for (final (statusCode, exceptionType) in [
+      (400, WiroValidationException),
       (401, WiroAuthenticationException),
+      (403, WiroAuthenticationException),
       (404, WiroUnknownApiException),
       (422, WiroValidationException),
       (429, WiroRateLimitException),
@@ -392,6 +538,70 @@ void main() {
   });
 
   group('WiroClient retries and logging', () {
+    test('does not retry model runs', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy(
+          initialDelay: Duration.zero,
+          maximumDelay: Duration.zero,
+        ),
+        httpClient: MockClient((_) async {
+          requestCount++;
+          return http.Response('Unavailable', 503);
+        }),
+      );
+
+      await expectLater(
+        client.runModel('wiro/demo'),
+        throwsA(isA<WiroUnknownApiException>()),
+      );
+      expect(requestCount, 1);
+    });
+
+    test('does not retry model runs after network failures', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy(
+          initialDelay: Duration.zero,
+          maximumDelay: Duration.zero,
+        ),
+        httpClient: MockClient((_) async {
+          requestCount++;
+          throw http.ClientException('offline');
+        }),
+      );
+
+      await expectLater(
+        client.runModel('wiro/demo'),
+        throwsA(isA<WiroNetworkException>()),
+      );
+      expect(requestCount, 1);
+    });
+
+    test('does not retry file uploads', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy(
+          initialDelay: Duration.zero,
+          maximumDelay: Duration.zero,
+        ),
+        httpClient: MockClient.streaming((request, bodyStream) async {
+          requestCount++;
+          await bodyStream.drain<void>();
+          throw http.ClientException('offline');
+        }),
+      );
+
+      await expectLater(
+        client.uploadFile(const [1, 2, 3], fileName: 'file.bin'),
+        throwsA(isA<WiroNetworkException>()),
+      );
+      expect(requestCount, 1);
+    });
+
     test('retries transient status codes with backoff', () async {
       var requestCount = 0;
       final events = <WiroLogEvent>[];

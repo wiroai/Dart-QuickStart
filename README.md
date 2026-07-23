@@ -7,7 +7,7 @@ The official type-safe Dart client for discovering and running AI models on
 
 [![CI](https://github.com/wiroai/wiro-dart/actions/workflows/ci.yml/badge.svg)](https://github.com/wiroai/wiro-dart/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/wiroai/wiro-dart/branch/main/graph/badge.svg)](https://codecov.io/gh/wiroai/wiro-dart)
-[![pub package](https://img.shields.io/pub/v/wiro_ai.svg)](https://pub.dev/packages/wiro_ai)
+[![pub package](https://img.shields.io/pub/v/wiro_client.svg)](https://pub.dev/packages/wiro_client)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 </div>
@@ -17,7 +17,7 @@ The official type-safe Dart client for discovering and running AI models on
 - Search and explore available AI models
 - Read typed model input schemas
 - Run image, video, audio, and other generative models
-- Upload files
+- Upload byte arrays or streams
 - Poll tasks or observe progress with `Stream<WiroTask>`
 - Cancel queued tasks and stop running tasks
 - Typed errors for authentication, validation, rate limits, and networking
@@ -28,24 +28,29 @@ The official type-safe Dart client for discovering and running AI models on
 ## Requirements
 
 - Dart `3.8.0` or newer
+- Flutter `3.32.8` or newer when used in a Flutter application
 - A [Wiro project and API key](https://wiro.ai/panel/project/new)
+
+The core package is pure Dart and supports Dart VM, Android, iOS, web,
+macOS, Windows, and Linux. Version `0.x` may receive API refinements before
+the first stable release.
 
 ## Installation
 
 ```bash
-dart pub add wiro_ai
+dart pub add wiro_client
 ```
 
 For Flutter applications:
 
 ```bash
-flutter pub add wiro_ai
+flutter pub add wiro_client
 ```
 
 ## Quick start
 
 ```dart
-import 'package:wiro_ai/wiro_ai.dart';
+import 'package:wiro_client/wiro_client.dart';
 
 Future<void> main() async {
   final client = WiroClient(apiKey: 'your-api-key');
@@ -78,10 +83,11 @@ final run = await client.runModel(
 );
 
 final task = await client.waitForTask(run.taskToken);
-if (task.isSuccessful) {
-  for (final output in task.outputs) {
-    print(output.url);
-  }
+if (!task.isSuccessful) {
+  throw StateError(task.debugOutput ?? 'Model execution failed.');
+}
+for (final output in task.outputs) {
+  print(output.url);
 }
 ```
 
@@ -94,13 +100,48 @@ for (final parameter in schema.parameters) {
 }
 ```
 
+## File inputs and uploads
+
+Model parameters accept remote URLs. `fileinput` values can use the parameter
+itself or its `Url` companion. `combinefileinput` values accept a list of URLs:
+
+```dart
+final run = await client.runModel(
+  'openai/sora-2',
+  parameters: {
+    'prompt': 'Animate this image',
+    'inputImage': ['https://example.com/input.jpg'],
+    'seconds': '4',
+  },
+);
+```
+
+Upload local bytes first when a public URL is not available:
+
+```dart
+final upload = await client.uploadFile(
+  bytes,
+  fileName: 'input.jpg',
+);
+final url = upload.files.single.url;
+```
+
+Use `uploadStream` with an exact `contentLength` for large files. Streaming
+avoids SDK-side buffering on supported runtimes.
+
 ## Observe task progress
 
 ```dart
-await for (final task in client.watchTask(run.taskToken)) {
+await for (final task in client.watchTask(
+  run.taskToken,
+  timeout: const Duration(minutes: 10),
+)) {
   print(task.statusValue);
 }
 ```
+
+`watchTask` polls the task endpoint; it is not a WebSocket stream. A terminal
+task is successful only when `task.isSuccessful` is `true`.
 
 ## Cancellation
 
@@ -135,6 +176,10 @@ final client = WiroClient(
 );
 ```
 
+Automatic retries apply only to safe read-like operations such as model and
+task lookup. Model runs and file uploads are not retried because they can
+create duplicate billable work. Rate-limit retries respect `Retry-After`.
+
 Logs never contain API keys, secrets, headers, or request bodies.
 
 ## Error handling
@@ -142,6 +187,9 @@ Logs never contain API keys, secrets, headers, or request bodies.
 ```dart
 try {
   await client.explore();
+} on WiroApiResultException catch (error) {
+  // HTTP succeeded, but Wiro rejected the operation.
+  print('${error.code}: ${error.message}');
 } on WiroAuthenticationException {
   // Invalid or expired credentials.
 } on WiroRateLimitException catch (error) {
@@ -156,6 +204,9 @@ try {
   print('${error.statusCode}: ${error.message}');
 }
 ```
+
+Wiro can report application-level failures with HTTP 2xx and `result: false`.
+The SDK converts these responses to `WiroApiResultException`.
 
 ## Authentication
 
@@ -173,6 +224,9 @@ final client = WiroClient(
   apiSecret: 'your-api-secret',
 );
 ```
+
+The configured credentials must match the authentication type selected for
+the Wiro project.
 
 Never embed long-lived Wiro credentials in a production mobile application.
 Call Wiro through your backend or use a short-lived client token flow when
@@ -202,7 +256,7 @@ can be extracted from a distributed mobile application.
 
 - [Wiro documentation](https://wiro.ai/docs)
 - [Available models](https://wiro.ai/models)
-- [API reference](https://pub.dev/documentation/wiro_ai/latest/)
+- [API reference](https://pub.dev/documentation/wiro_client/latest/)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 

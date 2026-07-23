@@ -3,7 +3,7 @@
 
 import 'dart:convert';
 
-import 'package:wiro_ai/src/model/wiro_json.dart';
+import 'package:wiro_client/src/model/wiro_json.dart';
 
 final class JsonReader {
   const JsonReader._();

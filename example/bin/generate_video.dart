@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wiro_ai/wiro_ai.dart';
+import 'package:wiro_client/wiro_client.dart';
 
 Future<void> main() async {
   final apiKey = Platform.environment['WIRO_API_KEY'];
@@ -28,6 +28,8 @@ Future<void> main() async {
         for (final output in task.outputs) {
           stdout.writeln(output.url);
         }
+      } else if (task.isFinished) {
+        throw StateError(task.debugOutput ?? 'Video generation failed.');
       }
     }
   } finally {

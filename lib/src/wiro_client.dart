@@ -3,13 +3,13 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
-import 'package:wiro_ai/src/model/json_reader.dart';
-import 'package:wiro_ai/src/model/wiro_json.dart';
-import 'package:wiro_ai/src/model/wiro_model.dart';
-import 'package:wiro_ai/src/model/wiro_result.dart';
-import 'package:wiro_ai/src/model/wiro_task.dart';
-import 'package:wiro_ai/src/wiro_exception.dart';
-import 'package:wiro_ai/src/wiro_request.dart';
+import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_json.dart';
+import 'package:wiro_client/src/model/wiro_model.dart';
+import 'package:wiro_client/src/model/wiro_result.dart';
+import 'package:wiro_client/src/model/wiro_task.dart';
+import 'package:wiro_client/src/wiro_exception.dart';
+import 'package:wiro_client/src/wiro_request.dart';
 
 /// Authentication method used by [WiroClient].
 enum WiroAuthType {
@@ -23,6 +23,9 @@ enum WiroAuthType {
 /// Client for the Wiro model and task APIs.
 final class WiroClient {
   /// Creates a Wiro API client.
+  ///
+  /// The supplied credentials must match the authentication type configured
+  /// for the Wiro project. Use an HTTPS [baseUri] outside local development.
   WiroClient({
     required String apiKey,
     String? apiSecret,
@@ -36,11 +39,16 @@ final class WiroClient {
        // The public parameter intentionally omits the private field prefix.
        // ignore: prefer_initializing_formals
        _apiSecret = apiSecret,
-       _baseUrl = _normalizeBaseUrl(baseUri ?? defaultBaseUri),
+       _baseUrl = _normalizeBaseUrl(
+         _validateBaseUri(baseUri ?? defaultBaseUri),
+       ),
        _httpClient = httpClient ?? http.Client(),
        _ownsHttpClient = httpClient == null {
     if (apiKey.trim().isEmpty) {
       throw ArgumentError.value(apiKey, 'apiKey', 'Cannot be empty');
+    }
+    if (apiSecret != null && apiSecret.trim().isEmpty) {
+      throw ArgumentError.value(apiSecret, 'apiSecret', 'Cannot be empty');
     }
     if (requestTimeout <= Duration.zero) {
       throw ArgumentError.value(
@@ -73,7 +81,9 @@ final class WiroClient {
   /// Maximum duration of an individual HTTP request.
   final Duration requestTimeout;
 
-  /// Retry behavior for transient HTTP and network failures.
+  /// Retry behavior for safe read-like HTTP operations.
+  ///
+  /// Model runs and file uploads are never retried automatically.
   final WiroRetryPolicy retryPolicy;
 
   /// Optional structured diagnostic event receiver.
@@ -95,6 +105,13 @@ final class WiroClient {
     String? order,
     WiroCancellationToken? cancellationToken,
   }) {
+    if (start < 0) {
+      throw ArgumentError.value(start, 'start', 'Cannot be negative');
+    }
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'Must be between 1 and 100');
+    }
+
     return _post(
       '/Tool/List',
       {
@@ -147,6 +164,8 @@ final class WiroClient {
   }
 
   /// Starts [model] with the supplied dynamic [parameters].
+  ///
+  /// This billable operation is not retried automatically.
   Future<WiroRunResult> runModel(
     String model, {
     WiroJson parameters = const {},
@@ -154,10 +173,11 @@ final class WiroClient {
   }) {
     final (:owner, :project) = _parseModel(model);
     return _post(
-      '/Run/$owner/$project',
+      '/Run/${Uri.encodeComponent(owner)}/${Uri.encodeComponent(project)}',
       parameters,
       WiroRunResult.fromJson,
       cancellationToken: cancellationToken,
+      retryable: false,
     );
   }
 
@@ -169,6 +189,12 @@ final class WiroClient {
   }) {
     if (taskToken == null && taskId == null) {
       throw ArgumentError('taskToken or taskId is required');
+    }
+    if (taskToken != null) {
+      _validateToken(taskToken, 'taskToken');
+    }
+    if (taskId != null) {
+      _validateToken(taskId, 'taskId');
     }
 
     return _post(
@@ -187,6 +213,7 @@ final class WiroClient {
     String taskToken, {
     WiroCancellationToken? cancellationToken,
   }) {
+    _validateToken(taskToken, 'taskToken');
     return _post(
       '/Task/Cancel',
       {'tasktoken': taskToken},
@@ -200,6 +227,7 @@ final class WiroClient {
     String taskToken, {
     WiroCancellationToken? cancellationToken,
   }) {
+    _validateToken(taskToken, 'taskToken');
     return _post(
       '/Task/Kill',
       {'tasktoken': taskToken},
@@ -213,16 +241,47 @@ final class WiroClient {
     List<int> bytes, {
     required String fileName,
     WiroCancellationToken? cancellationToken,
+  }) {
+    return uploadStream(
+      Stream.value(bytes),
+      contentLength: bytes.length,
+      fileName: fileName,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  /// Uploads a byte [stream] to Wiro without buffering it in the SDK.
+  ///
+  /// The caller must provide the exact [contentLength]. Uploads are not
+  /// automatically retried because a retry could create a duplicate file.
+  Future<WiroUploadResult> uploadStream(
+    Stream<List<int>> stream, {
+    required int contentLength,
+    required String fileName,
+    WiroCancellationToken? cancellationToken,
   }) async {
+    if (fileName.trim().isEmpty) {
+      throw ArgumentError.value(fileName, 'fileName', 'Cannot be empty');
+    }
+    if (contentLength < 0) {
+      throw ArgumentError.value(
+        contentLength,
+        'contentLength',
+        'Cannot be negative',
+      );
+    }
+
     final response = await _sendWithPolicy(
       method: 'POST',
       path: '/File/Upload',
       cancellationToken: cancellationToken,
+      retryable: false,
       requestBuilder: (uri, abortTrigger) {
         return _buildMultipartRequest(
           uri,
           abortTrigger,
-          bytes: bytes,
+          stream: stream,
+          contentLength: contentLength,
           fileName: fileName,
         );
       },
@@ -230,12 +289,24 @@ final class WiroClient {
     return WiroUploadResult.fromJson(_decodeResponse(response));
   }
 
-  /// Emits task snapshots until the task reaches a terminal status.
+  /// Emits polled task snapshots until the task reaches a terminal status.
+  ///
+  /// Cancelling the stream does not abort an in-flight HTTP request. Supply a
+  /// [cancellationToken] when request cancellation is required.
   Stream<WiroTask> watchTask(
     String taskToken, {
-    Duration timeout = const Duration(minutes: 2),
+    Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
   }) async* {
+    _validateToken(taskToken, 'taskToken');
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(
+        timeout,
+        'timeout',
+        'Must be greater than zero',
+      );
+    }
+
     final deadline = DateTime.now().add(timeout);
 
     while (DateTime.now().isBefore(deadline)) {
@@ -263,7 +334,7 @@ final class WiroClient {
   /// Polls until a task reaches a terminal status.
   Future<WiroTask> waitForTask(
     String taskToken, {
-    Duration timeout = const Duration(minutes: 2),
+    Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
   }) async {
     await for (final task in watchTask(
@@ -296,11 +367,13 @@ final class WiroClient {
     WiroJson body,
     T Function(WiroJson json) fromJson, {
     WiroCancellationToken? cancellationToken,
+    bool retryable = true,
   }) async {
     final response = await _sendWithPolicy(
       method: 'POST',
       path: path,
       cancellationToken: cancellationToken,
+      retryable: retryable,
       requestBuilder: (uri, abortTrigger) {
         return http.AbortableRequest(
             'POST',
@@ -319,6 +392,7 @@ final class WiroClient {
     required String path,
     required _RequestBuilder requestBuilder,
     WiroCancellationToken? cancellationToken,
+    bool retryable = true,
   }) async {
     final uri = Uri.parse('$_baseUrl$path');
 
@@ -332,6 +406,7 @@ final class WiroClient {
           cancellationToken: cancellationToken,
         );
         final shouldRetry =
+            retryable &&
             retryPolicy.shouldRetryStatus(response.statusCode) &&
             attempt < retryPolicy.maxRetries;
         if (!shouldRetry) {
@@ -342,12 +417,15 @@ final class WiroClient {
           uri: uri,
           attempt: attempt,
           statusCode: response.statusCode,
+          minimumDelay: response.statusCode == 429
+              ? _retryAfter(response)
+              : null,
           cancellationToken: cancellationToken,
         );
       } on WiroRequestCancelledException {
         rethrow;
       } on WiroNetworkException catch (error) {
-        if (attempt >= retryPolicy.maxRetries) {
+        if (!retryable || attempt >= retryPolicy.maxRetries) {
           _logFailure(method: method, uri: uri, error: error);
           rethrow;
         }
@@ -359,7 +437,7 @@ final class WiroClient {
           cancellationToken: cancellationToken,
         );
       } on WiroTimeoutException catch (error) {
-        if (attempt >= retryPolicy.maxRetries) {
+        if (!retryable || attempt >= retryPolicy.maxRetries) {
           _logFailure(method: method, uri: uri, error: error);
           rethrow;
         }
@@ -448,9 +526,13 @@ final class WiroClient {
     required int attempt,
     WiroCancellationToken? cancellationToken,
     int? statusCode,
+    Duration? minimumDelay,
     Object? error,
   }) async {
-    final delay = retryPolicy.delayFor(attempt);
+    final policyDelay = retryPolicy.delayFor(attempt);
+    final delay = minimumDelay != null && minimumDelay > policyDelay
+        ? minimumDelay
+        : policyDelay;
     _log(
       WiroLogEvent(
         level: WiroLogLevel.warning,
@@ -488,15 +570,17 @@ final class WiroClient {
   http.BaseRequest _buildMultipartRequest(
     Uri uri,
     Future<void> abortTrigger, {
-    required List<int> bytes,
+    required Stream<List<int>> stream,
+    required int contentLength,
     required String fileName,
   }) {
     final multipart = http.MultipartRequest('POST', uri)
       ..headers.addAll(_authHeaders(includeContentType: false))
       ..files.add(
-        http.MultipartFile.fromBytes(
+        http.MultipartFile(
           'file',
-          bytes,
+          stream,
+          contentLength,
           filename: fileName,
         ),
       );
@@ -547,7 +631,11 @@ final class WiroClient {
     try {
       final decoded = jsonDecode(response.body);
       if (decoded case final Map<String, dynamic> json) {
-        return json.cast<String, Object?>();
+        final result = json.cast<String, Object?>();
+        if (!JsonReader.boolean(result['result'], fallback: true)) {
+          throw _exceptionForApiResult(response, result);
+        }
+        return result;
       }
       throw const FormatException('Expected a JSON object');
     } on FormatException catch (error) {
@@ -585,17 +673,38 @@ final class WiroClient {
         responseBody: response.body,
       ),
     };
+    _logApiFailure(response, exception.message);
+    return exception;
+  }
+
+  WiroApiResultException _exceptionForApiResult(
+    http.Response response,
+    WiroJson json,
+  ) {
+    final errors = JsonReader.list(json['errors']);
+    final firstError = errors.isEmpty
+        ? const <String, Object?>{}
+        : JsonReader.map(errors.first);
+    final exception = WiroApiResultException(
+      _responseErrorMessage(response.body),
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      code: firstError['code'],
+    );
+    _logApiFailure(response, exception.message);
+    return exception;
+  }
+
+  void _logApiFailure(http.Response response, String message) {
     _log(
       WiroLogEvent(
         level: WiroLogLevel.error,
-        message: exception.message,
+        message: message,
         method: response.request?.method,
         uri: response.request?.url,
         statusCode: response.statusCode,
-        error: exception,
       ),
     );
-    return exception;
   }
 
   String _responseErrorMessage(String body) {
@@ -642,15 +751,24 @@ final class WiroClient {
   }
 
   static ({String owner, String project}) _parseModel(String model) {
-    final separator = model.indexOf('/');
-    if (separator <= 0 || separator == model.length - 1) {
+    final parts = model.split('/');
+    final slugPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+    if (parts.length != 2 ||
+        !slugPattern.hasMatch(parts.first) ||
+        !slugPattern.hasMatch(parts.last)) {
       throw ArgumentError.value(model, 'model', 'Use the "owner/model" format');
     }
 
     return (
-      owner: model.substring(0, separator),
-      project: model.substring(separator + 1),
+      owner: parts.first,
+      project: parts.last,
     );
+  }
+
+  static void _validateToken(String value, String name) {
+    if (value.trim().isEmpty) {
+      throw ArgumentError.value(value, name, 'Cannot be empty');
+    }
   }
 
   static WiroModelSchema _modelSchemaFromResponse(WiroJson json) {
@@ -678,7 +796,23 @@ final class WiroClient {
   }
 
   static String _normalizeBaseUrl(Uri uri) {
-    return uri.toString().replaceFirst(RegExp(r'/$'), '');
+    return uri.toString().replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  static Uri _validateBaseUri(Uri uri) {
+    final hasHttpScheme = uri.scheme == 'https' || uri.scheme == 'http';
+    if (!hasHttpScheme ||
+        !uri.hasAuthority ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw ArgumentError.value(
+        uri,
+        'baseUri',
+        'Must be an HTTP(S) origin without credentials, query, or fragment',
+      );
+    }
+    return uri;
   }
 }
 

@@ -1,6 +1,6 @@
-import 'package:wiro_ai/src/model/json_reader.dart';
-import 'package:wiro_ai/src/model/wiro_json.dart';
-import 'package:wiro_ai/src/model/wiro_model.dart';
+import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_json.dart';
+import 'package:wiro_client/src/model/wiro_model.dart';
 
 /// An error included in a Wiro API response.
 final class WiroApiError {

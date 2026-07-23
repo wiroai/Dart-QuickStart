@@ -1,5 +1,7 @@
-name: wiro_ai
-description: Official Wiro AI SDK for Dart and Flutter.
+name: wiro_client
+description: >-
+  Official Wiro AI SDK for Dart and Flutter with typed model discovery,
+  execution, file uploads, task polling, cancellation, and structured errors.
 version: 0.1.0
 homepage: https://wiro.ai
 documentation: https://wiro.ai/docs

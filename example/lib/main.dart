@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wiro_ai/wiro_ai.dart';
+import 'package:wiro_client/wiro_client.dart';
 
 void main() {
   const apiKey = String.fromEnvironment('WIRO_API_KEY');

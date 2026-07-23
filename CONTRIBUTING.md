@@ -68,5 +68,20 @@ This project follows [Semantic Versioning](https://semver.org/):
 - Minor: backward-compatible functionality
 - Major: breaking public API changes
 
-Maintainers update `CHANGELOG.md` and `pubspec.yaml`, create a `vX.Y.Z`
-GitHub release, and trusted publishing sends the package to pub.dev.
+Maintainers update `CHANGELOG.md` and `pubspec.yaml`, then push a `vX.Y.Z`
+tag. Trusted publishing sends the package to pub.dev after quality checks.
+
+Before the first release, maintainers must configure:
+
+- The `pub.dev` GitHub environment with required reviewers
+- A pub.dev trusted publisher for `wiroai/wiro-dart`
+- Codecov OIDC access for the repository
+- Read-only `WIRO_API_KEY` and optional `WIRO_API_SECRET` repository secrets
+- Branch protection requiring the CI workflow
+
+The release tag must exactly match the package version, prefixed with `v`.
+For example, package version `0.1.0` must be released with tag `v0.1.0`.
+
+Pub.dev requires the first package version to be published manually. After
+that release, enable GitHub Actions publishing with repository
+`wiroai/wiro-dart`, tag pattern `v{{version}}`, and environment `pub.dev`.

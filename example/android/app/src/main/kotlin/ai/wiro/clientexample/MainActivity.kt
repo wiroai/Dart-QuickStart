@@ -1,4 +1,4 @@
-package com.example.wiro_ai_example
+package ai.wiro.clientexample
 
 import io.flutter.embedding.android.FlutterActivity
 

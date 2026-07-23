@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:wiro_ai/src/wiro_exception.dart';
+import 'package:wiro_client/src/wiro_exception.dart';
 
 /// Allows a caller to cancel an in-flight Wiro request.
 final class WiroCancellationToken {
@@ -28,7 +28,9 @@ final class WiroCancellationToken {
   }
 }
 
-/// Defines retry behavior for transient Wiro failures.
+/// Defines retry behavior for transient failures on safe Wiro operations.
+///
+/// The client does not apply this policy to model runs or file uploads.
 final class WiroRetryPolicy {
   /// Creates a retry policy.
   const WiroRetryPolicy({
