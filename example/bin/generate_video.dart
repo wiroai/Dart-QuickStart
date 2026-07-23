@@ -12,19 +12,32 @@ Future<void> main() async {
 
   final client = WiroClient(apiKey: apiKey);
   try {
-    final task = await client.subscribe(
-      'openai/sora-2',
+    final run = await client.runModel(
+      'runway/gen-4-5',
       parameters: {
         'prompt': 'A cinematic drone shot over snowy mountains',
-        'seconds': '4',
-        'resolution': '720p',
         'ratio': '16:9',
-      },
-      onTaskUpdate: (task) {
-        stdout.writeln('Status: ${task.statusValue}');
+        'duration': 2,
       },
     );
 
+    await for (final event in client.watchTaskSocket(run.taskToken)) {
+      if (event case WiroSocketMessageEvent(
+        :final statusValue,
+        :final progress,
+      )) {
+        final percentage = progress?.percentage;
+        stdout.writeln(
+          'Status: $statusValue'
+          '${percentage == null ? '' : ' ($percentage%)'}',
+        );
+      }
+    }
+
+    final task = await client.getTask(taskToken: run.taskToken);
+    if (!task.isSuccessful) {
+      throw WiroTaskFailedException(task);
+    }
     for (final output in task.outputs) {
       stdout.writeln(output.url);
     }

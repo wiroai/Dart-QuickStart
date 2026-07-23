@@ -9,6 +9,7 @@
 - Add request cancellation, configurable retries, backoff, timeouts, and
   structured logging.
 - Add task progress streams.
+- Add typed task WebSocket events, progress payloads, and binary frames.
 - Add `subscribe` for one-call model execution and task polling.
 - Add explicit `callbackUrl` support for completion webhooks.
 - Add `WiroTaskFailedException` for unsuccessful terminal tasks.

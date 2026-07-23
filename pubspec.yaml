@@ -1,7 +1,8 @@
 name: wiro_client
 description: >-
   Official Wiro AI SDK for Dart and Flutter with typed model discovery,
-  execution, file uploads, task polling, cancellation, and structured errors.
+  execution, file uploads, task polling, WebSocket streaming, cancellation,
+  and structured errors.
 version: 0.1.0
 homepage: https://wiro.ai
 documentation: https://wiro.ai/docs
@@ -19,6 +20,7 @@ environment:
 dependencies:
   crypto: ^3.0.7
   http: ^1.6.0
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   coverage: ^1.15.1

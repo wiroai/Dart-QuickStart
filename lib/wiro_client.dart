@@ -20,6 +20,7 @@ library;
 export 'src/model/wiro_json.dart';
 export 'src/model/wiro_model.dart';
 export 'src/model/wiro_result.dart' hide parseWiroApiErrors;
+export 'src/model/wiro_socket.dart';
 export 'src/model/wiro_task.dart';
 export 'src/wiro_client.dart';
 export 'src/wiro_exception.dart';

@@ -103,6 +103,12 @@ final class WiroNetworkException extends WiroException {
   const WiroNetworkException(super.message, {super.cause});
 }
 
+/// Indicates that a task WebSocket connection or payload was invalid.
+final class WiroWebSocketException extends WiroException {
+  /// Creates a WebSocket exception.
+  const WiroWebSocketException(super.message, {super.cause});
+}
+
 /// Indicates that a task reached a terminal state without succeeding.
 final class WiroTaskFailedException extends WiroException {
   /// Creates a task failure exception.

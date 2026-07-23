@@ -3,10 +3,12 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:wiro_client/src/model/json_reader.dart';
 import 'package:wiro_client/src/model/wiro_json.dart';
 import 'package:wiro_client/src/model/wiro_model.dart';
 import 'package:wiro_client/src/model/wiro_result.dart';
+import 'package:wiro_client/src/model/wiro_socket.dart';
 import 'package:wiro_client/src/model/wiro_task.dart';
 import 'package:wiro_client/src/wiro_exception.dart';
 import 'package:wiro_client/src/wiro_request.dart';
@@ -33,6 +35,7 @@ final class WiroClient {
     required String apiKey,
     String? apiSecret,
     Uri? baseUri,
+    Uri? socketUri,
     http.Client? httpClient,
     this.pollInterval = const Duration(seconds: 3),
     this.requestTimeout = const Duration(seconds: 30),
@@ -45,6 +48,7 @@ final class WiroClient {
        _baseUrl = _normalizeBaseUrl(
          _validateBaseUri(baseUri ?? defaultBaseUri),
        ),
+       _socketUri = _validateSocketUri(socketUri ?? defaultSocketUri),
        _httpClient = httpClient ?? http.Client(),
        _ownsHttpClient = httpClient == null {
     if (apiKey.trim().isEmpty) {
@@ -72,9 +76,13 @@ final class WiroClient {
   /// Default Wiro REST API endpoint.
   static final Uri defaultBaseUri = Uri.parse('https://api.wiro.ai/v1');
 
+  /// Default Wiro task WebSocket endpoint.
+  static final Uri defaultSocketUri = Uri.parse('wss://socket.wiro.ai/v1');
+
   final String _apiKey;
   final String? _apiSecret;
   final String _baseUrl;
+  final Uri _socketUri;
   final http.Client _httpClient;
   final bool _ownsHttpClient;
 
@@ -383,6 +391,111 @@ final class WiroClient {
       'Task did not finish within ${timeout.inSeconds} seconds.',
       timeout: timeout,
     );
+  }
+
+  /// Streams realtime task events from Wiro over WebSocket.
+  ///
+  /// The client registers [taskToken] using Wiro's `task_info` protocol and
+  /// closes the connection after `task_postprocess_end` or `task_cancel`.
+  /// JSON frames are emitted as [WiroSocketMessageEvent], while realtime
+  /// binary frames are emitted as [WiroSocketBinaryEvent].
+  Stream<WiroSocketEvent> watchTaskSocket(
+    String taskToken, {
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+  }) async* {
+    _validateToken(taskToken, 'taskToken');
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(
+        timeout,
+        'timeout',
+        'Must be greater than zero',
+      );
+    }
+
+    cancellationToken?.throwIfCancelled();
+    final channel = WebSocketChannel.connect(_socketUri);
+    var timedOut = false;
+    Timer? timer;
+
+    _log(
+      WiroLogEvent(
+        level: WiroLogLevel.debug,
+        message: 'Connecting to the Wiro task WebSocket.',
+        uri: _socketUri,
+      ),
+    );
+
+    try {
+      final readyFutures = <Future<void>>[
+        channel.ready,
+        if (cancellationToken != null) cancellationToken.whenCancelled,
+      ];
+      await Future.any(readyFutures).timeout(requestTimeout);
+      cancellationToken?.throwIfCancelled();
+
+      channel.sink.add(
+        jsonEncode({'type': 'task_info', 'tasktoken': taskToken}),
+      );
+      _log(
+        WiroLogEvent(
+          level: WiroLogLevel.info,
+          message: 'Wiro task WebSocket connected.',
+          uri: _socketUri,
+        ),
+      );
+
+      timer = Timer(timeout, () {
+        timedOut = true;
+        unawaited(channel.sink.close());
+      });
+      if (cancellationToken != null) {
+        unawaited(
+          cancellationToken.whenCancelled.then((_) => channel.sink.close()),
+        );
+      }
+
+      await for (final frame in channel.stream) {
+        cancellationToken?.throwIfCancelled();
+        final event = _decodeSocketEvent(frame);
+        yield event;
+        if (event case WiroSocketMessageEvent(isTerminal: true)) {
+          return;
+        }
+      }
+
+      cancellationToken?.throwIfCancelled();
+      if (timedOut) {
+        throw WiroTimeoutException(
+          'Task socket did not finish within ${timeout.inSeconds} seconds.',
+          timeout: timeout,
+        );
+      }
+      throw const WiroWebSocketException(
+        'The Wiro task WebSocket closed before a terminal event.',
+      );
+    } on WiroRequestCancelledException {
+      rethrow;
+    } on WiroTimeoutException {
+      rethrow;
+    } on TimeoutException catch (error) {
+      throw WiroTimeoutException(
+        'Wiro task WebSocket connection timed out after '
+        '${requestTimeout.inSeconds} seconds.',
+        timeout: requestTimeout,
+        cause: error,
+      );
+    } on WiroWebSocketException {
+      rethrow;
+    } on Object catch (error) {
+      throw WiroWebSocketException(
+        'Unable to communicate with the Wiro task WebSocket.',
+        cause: error,
+      );
+    } finally {
+      timer?.cancel();
+      await channel.sink.close();
+    }
   }
 
   /// Polls until a task reaches a terminal status.
@@ -849,6 +962,34 @@ final class WiroClient {
     return WiroTask.fromJson(JsonReader.map(tasks.first));
   }
 
+  static WiroSocketEvent _decodeSocketEvent(Object? frame) {
+    if (frame case final List<int> bytes) {
+      return WiroSocketBinaryEvent(bytes);
+    }
+    if (frame case final String text) {
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded case final Map<String, dynamic> json) {
+          return WiroSocketMessageEvent.fromJson(
+            json.cast<String, Object?>(),
+          );
+        }
+      } on FormatException catch (error) {
+        throw WiroWebSocketException(
+          'The Wiro task WebSocket returned invalid JSON.',
+          cause: error,
+        );
+      }
+      throw const WiroWebSocketException(
+        'The Wiro task WebSocket returned a non-object JSON payload.',
+      );
+    }
+    throw WiroWebSocketException(
+      'The Wiro task WebSocket returned an unsupported frame type: '
+      '${frame.runtimeType}.',
+    );
+  }
+
   static String _normalizeBaseUrl(Uri uri) {
     return uri.toString().replaceFirst(RegExp(r'/+$'), '');
   }
@@ -879,6 +1020,22 @@ final class WiroClient {
         uri,
         'callbackUrl',
         'Must be an HTTP(S) URL without credentials or a fragment',
+      );
+    }
+    return uri;
+  }
+
+  static Uri _validateSocketUri(Uri uri) {
+    final hasSocketScheme = uri.scheme == 'wss' || uri.scheme == 'ws';
+    if (!hasSocketScheme ||
+        !uri.hasAuthority ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw ArgumentError.value(
+        uri,
+        'socketUri',
+        'Must be a WS(S) URL without credentials, query, or fragment',
       );
     }
     return uri;

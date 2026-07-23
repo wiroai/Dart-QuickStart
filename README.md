@@ -19,7 +19,7 @@ The official type-safe Dart client for discovering and running AI models on
 - Run image, video, audio, and other generative models
 - Submit and await a task with one `subscribe` call
 - Upload byte arrays or streams
-- Poll tasks or observe progress with `Stream<WiroTask>`
+- Poll tasks or stream typed progress over WebSocket
 - Cancel queued tasks and stop running tasks
 - Typed errors for authentication, validation, rate limits, and networking
 - Request cancellation, timeouts, retry with exponential backoff, and logging
@@ -144,6 +144,32 @@ avoids SDK-side buffering on supported runtimes.
 
 ## Observe task progress
 
+Use WebSocket for realtime lifecycle, progress, LLM, and binary events:
+
+```dart
+await for (final event in client.watchTaskSocket(run.taskToken)) {
+  switch (event) {
+    case WiroSocketMessageEvent(
+      :final statusValue,
+      :final progress,
+      :final outputs,
+    ):
+      print('$statusValue: ${progress?.percentage}');
+      for (final output in outputs) {
+        print(output.url);
+      }
+    case WiroSocketBinaryEvent(:final bytes):
+      print('Received ${bytes.length} realtime bytes');
+  }
+}
+```
+
+The socket uses Wiro's `task_info` protocol and closes after
+`task_postprocess_end` or `task_cancel`. Binary frames are preserved for
+realtime audio models.
+
+Polling remains available as a fallback:
+
 ```dart
 await for (final task in client.watchTask(
   run.taskToken,
@@ -153,8 +179,8 @@ await for (final task in client.watchTask(
 }
 ```
 
-`watchTask` polls the task endpoint; it is not a WebSocket stream. A terminal
-task is successful only when `task.isSuccessful` is `true`.
+For a definitive success check, fetch the terminal task and verify
+`task.isSuccessful`.
 
 ## Cancellation
 

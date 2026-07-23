@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
@@ -46,6 +47,20 @@ void main() {
       ]) {
         expect(
           () => WiroClient(apiKey: 'key', baseUri: uri),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test('rejects unsafe WebSocket URI shapes', () {
+      for (final uri in [
+        Uri.parse('https://socket.wiro.ai/v1'),
+        Uri.parse('wss://key@socket.wiro.ai/v1'),
+        Uri.parse('wss://socket.wiro.ai/v1?key=value'),
+        Uri.parse('wss://socket.wiro.ai/v1#fragment'),
+      ]) {
+        expect(
+          () => WiroClient(apiKey: 'key', socketUri: uri),
           throwsArgumentError,
         );
       }
@@ -412,6 +427,192 @@ void main() {
       expect(await client.cancelTask('task-token'), isTrue);
       expect(await client.killTask('task-token'), isTrue);
       expect(paths, ['/v1/Task/Cancel', '/v1/Task/Kill']);
+    });
+  });
+
+  group('WiroClient task WebSocket', () {
+    test('rejects invalid socket watch values', () async {
+      final client = WiroClient(apiKey: 'test-key');
+
+      await expectLater(
+        client.watchTaskSocket(' ').toList(),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client
+            .watchTaskSocket(
+              'task-token',
+              timeout: Duration.zero,
+            )
+            .toList(),
+        throwsArgumentError,
+      );
+      client.close();
+    });
+
+    test(
+      'streams typed lifecycle, progress, and final output events',
+      () async {
+        final server = await _SocketTestServer.start((socket) async {
+          final registration =
+              jsonDecode(await socket.first as String) as Map<String, dynamic>;
+          expect(registration['type'], 'task_info');
+          expect(registration['tasktoken'], 'task-token');
+
+          socket
+            ..add(jsonEncode(_socketEvent('task_queue')))
+            ..add(
+              jsonEncode(
+                _socketEvent(
+                  'task_output',
+                  message: const {
+                    'type': 'progressGenerate',
+                    'percentage': '60',
+                    'stepCurrent': '6',
+                    'stepTotal': '10',
+                  },
+                ),
+              ),
+            )
+            ..add(
+              jsonEncode(
+                _socketEvent(
+                  'task_postprocess_end',
+                  message: const [
+                    {
+                      'name': 'result.png',
+                      'contenttype': 'image/png',
+                      'url': 'https://cdn.wiro.ai/result.png',
+                    },
+                  ],
+                ),
+              ),
+            );
+        });
+        addTearDown(server.close);
+        final client = WiroClient(
+          apiKey: 'test-key',
+          socketUri: server.uri,
+        );
+
+        final events = await client.watchTaskSocket('task-token').toList();
+        final messages = events.whereType<WiroSocketMessageEvent>().toList();
+
+        expect(
+          messages.map((event) => event.status),
+          [
+            WiroTaskStatus.queued,
+            WiroTaskStatus.output,
+            WiroTaskStatus.completed,
+          ],
+        );
+        expect(messages[1].progress?.percentage, 60);
+        expect(messages[1].progress?.currentStep, 6);
+        expect(messages.last.outputs.single.name, 'result.png');
+        expect(messages.last.isTerminal, isTrue);
+        await server.done;
+      },
+    );
+
+    test('emits binary frames from realtime tasks', () async {
+      final server = await _SocketTestServer.start((socket) async {
+        await socket.first;
+        socket
+          ..add(const [1, 2, 3])
+          ..add(jsonEncode(_socketEvent('task_cancel', result: false)));
+      });
+      addTearDown(server.close);
+      final client = WiroClient(
+        apiKey: 'test-key',
+        socketUri: server.uri,
+      );
+
+      final events = await client.watchTaskSocket('task-token').toList();
+
+      expect(
+        (events.first as WiroSocketBinaryEvent).bytes,
+        [1, 2, 3],
+      );
+      expect(
+        (events.last as WiroSocketMessageEvent).status,
+        WiroTaskStatus.cancelled,
+      );
+      await server.done;
+    });
+
+    test('supports socket cancellation', () async {
+      final registered = Completer<void>();
+      final releaseServer = Completer<void>();
+      final server = await _SocketTestServer.start((socket) async {
+        await socket.first;
+        registered.complete();
+        await releaseServer.future;
+      });
+      addTearDown(server.close);
+      final cancellationToken = WiroCancellationToken();
+      final client = WiroClient(
+        apiKey: 'test-key',
+        socketUri: server.uri,
+      );
+
+      final events = client
+          .watchTaskSocket(
+            'task-token',
+            cancellationToken: cancellationToken,
+          )
+          .toList();
+      await registered.future;
+      cancellationToken.cancel();
+
+      await expectLater(
+        events,
+        throwsA(isA<WiroRequestCancelledException>()),
+      );
+      releaseServer.complete();
+      await server.done;
+    });
+
+    test('times out a socket stream without a terminal event', () async {
+      final releaseServer = Completer<void>();
+      final server = await _SocketTestServer.start((socket) async {
+        await socket.first;
+        await releaseServer.future;
+      });
+      addTearDown(server.close);
+      final client = WiroClient(
+        apiKey: 'test-key',
+        socketUri: server.uri,
+      );
+
+      await expectLater(
+        client
+            .watchTaskSocket(
+              'task-token',
+              timeout: const Duration(milliseconds: 10),
+            )
+            .toList(),
+        throwsA(isA<WiroTimeoutException>()),
+      );
+      releaseServer.complete();
+      await server.done;
+    });
+
+    test('maps invalid socket JSON to a typed exception', () async {
+      final server = await _SocketTestServer.start((socket) async {
+        await socket.first;
+        socket.add('invalid');
+      });
+      addTearDown(server.close);
+      final client = WiroClient(
+        apiKey: 'test-key',
+        socketUri: server.uri,
+      );
+
+      await expectLater(
+        client.watchTaskSocket('task-token').toList(),
+        throwsA(isA<WiroWebSocketException>()),
+      );
+      await server.done;
     });
   });
 
@@ -885,3 +1086,49 @@ const _uploadResponse = <String, Object?>{
     },
   ],
 };
+
+Map<String, Object?> _socketEvent(
+  String type, {
+  Object? message,
+  bool result = true,
+}) {
+  return {
+    'type': type,
+    'id': '42',
+    'tasktoken': 'task-token',
+    'message': message,
+    'result': result,
+  };
+}
+
+final class _SocketTestServer {
+  _SocketTestServer._({
+    required HttpServer server,
+    required this.done,
+  }) : _server = server,
+       uri = Uri.parse('ws://${server.address.address}:${server.port}');
+
+  final HttpServer _server;
+  final Future<void> done;
+  final Uri uri;
+
+  static Future<_SocketTestServer> start(
+    Future<void> Function(WebSocket socket) handler,
+  ) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final done = Completer<void>();
+    server.listen((request) async {
+      try {
+        final socket = await WebSocketTransformer.upgrade(request);
+        await handler(socket);
+        await socket.close();
+        done.complete();
+      } on Object catch (error, stackTrace) {
+        done.completeError(error, stackTrace);
+      }
+    });
+    return _SocketTestServer._(server: server, done: done.future);
+  }
+
+  Future<void> close() => _server.close(force: true);
+}

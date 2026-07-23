@@ -19,8 +19,8 @@ WIRO_API_KEY=your-api-key dart run bin/generate_image.dart
 WIRO_API_KEY=your-api-key dart run bin/generate_video.dart
 ```
 
-Both generation examples use `subscribe` to submit and await the task. The
-video example also prints each polled status update.
+The image example uses `subscribe` with polling. The video example uses
+`runModel` and `watchTaskSocket` to print realtime task events.
 
 Do not embed long-lived API credentials in production mobile builds.
 Route production requests through your backend and keep Wiro credentials
