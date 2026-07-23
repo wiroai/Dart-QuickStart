@@ -17,6 +17,7 @@ The official type-safe Dart client for discovering and running AI models on
 - Search and explore available AI models
 - Read typed model input schemas
 - Run image, video, audio, and other generative models
+- Submit and await a task with one `subscribe` call
 - Upload byte arrays or streams
 - Poll tasks or observe progress with `Stream<WiroTask>`
 - Cancel queued tasks and stop running tasks
@@ -72,7 +73,7 @@ Model parameters remain dynamic because every model has a different schema.
 Responses are fully typed.
 
 ```dart
-final run = await client.runModel(
+final task = await client.subscribe(
   'openai/sora-2',
   parameters: {
     'prompt': 'A cinematic drone shot over snowy mountains',
@@ -80,15 +81,27 @@ final run = await client.runModel(
     'resolution': '720p',
     'ratio': '16:9',
   },
+  onTaskUpdate: (task) {
+    print(task.statusValue);
+  },
 );
 
-final task = await client.waitForTask(run.taskToken);
-if (!task.isSuccessful) {
-  throw StateError(task.debugOutput ?? 'Model execution failed.');
-}
 for (final output in task.outputs) {
   print(output.url);
 }
+```
+
+`subscribe` throws `WiroTaskFailedException` when the terminal task did not
+succeed. Use the lower-level API when submission and polling must be managed
+separately:
+
+```dart
+final run = await client.runModel(
+  'openai/sora-2',
+  parameters: {'prompt': 'A cinematic mountain lake'},
+  callbackUrl: Uri.parse('https://example.com/wiro-webhook'),
+);
+final task = await client.waitForTask(run.taskToken);
 ```
 
 Get the accepted parameters before running a model:
@@ -200,6 +213,8 @@ try {
   // Request or task polling timed out.
 } on WiroNetworkException {
   // The API could not be reached.
+} on WiroTaskFailedException catch (error) {
+  print(error.task.debugOutput);
 } on WiroUnknownApiException catch (error) {
   print('${error.statusCode}: ${error.message}');
 }

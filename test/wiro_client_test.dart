@@ -150,6 +150,7 @@ void main() {
           expect(request.url.path, '/v1/Run/openai/sora-2');
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['prompt'], 'A mountain');
+          expect(body['callbackUrl'], 'https://example.com/wiro');
           return _jsonResponse(_runResponse);
         }),
       );
@@ -157,10 +158,26 @@ void main() {
       final result = await client.runModel(
         'openai/sora-2',
         parameters: {'prompt': 'A mountain'},
+        callbackUrl: Uri.parse('https://example.com/wiro'),
       );
 
       expect(result.taskId, '42');
       expect(result.taskToken, 'task-token');
+    });
+
+    test('rejects an invalid callback URL', () {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((_) async => _jsonResponse(_runResponse)),
+      );
+
+      expect(
+        () => client.runModel(
+          'openai/sora-2',
+          callbackUrl: Uri.parse('file:///tmp/callback'),
+        ),
+        throwsArgumentError,
+      );
     });
 
     test('rejects an invalid model slug', () {
@@ -185,6 +202,90 @@ void main() {
   });
 
   group('WiroClient task APIs', () {
+    test('subscribes to a model until it succeeds', () async {
+      var detailRequestCount = 0;
+      final updates = <WiroTask>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: Duration.zero,
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/v1/Run/wiro/demo') {
+            return _jsonResponse(_runResponse);
+          }
+          detailRequestCount++;
+          return _jsonResponse(
+            detailRequestCount == 1
+                ? _runningTaskResponse
+                : _completedTaskResponse,
+          );
+        }),
+      );
+
+      final task = await client.subscribe(
+        'wiro/demo',
+        onTaskUpdate: updates.add,
+      );
+
+      expect(task.isSuccessful, isTrue);
+      expect(
+        updates.map((task) => task.status),
+        [WiroTaskStatus.running, WiroTaskStatus.completed],
+      );
+    });
+
+    test('throws a typed exception for a failed subscription', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: Duration.zero,
+        httpClient: MockClient((request) async {
+          return _jsonResponse(
+            request.url.path.startsWith('/v1/Run')
+                ? _runResponse
+                : _failedTaskResponse,
+          );
+        }),
+      );
+
+      await expectLater(
+        client.subscribe('wiro/demo'),
+        throwsA(
+          isA<WiroTaskFailedException>()
+              .having(
+                (error) => error.task.exitCode,
+                'task.exitCode',
+                '1',
+              )
+              .having(
+                (error) => error.task.debugOutput,
+                'task.debugOutput',
+                'Model failed',
+              ),
+        ),
+      );
+    });
+
+    test('can return a failed subscription task', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: Duration.zero,
+        httpClient: MockClient((request) async {
+          return _jsonResponse(
+            request.url.path.startsWith('/v1/Run')
+                ? _runResponse
+                : _failedTaskResponse,
+          );
+        }),
+      );
+
+      final task = await client.subscribe(
+        'wiro/demo',
+        throwOnTaskFailure: false,
+      );
+
+      expect(task.isFinished, isTrue);
+      expect(task.isSuccessful, isFalse);
+    });
+
     test('gets task details by token', () async {
       final client = WiroClient(
         apiKey: 'test-key',
@@ -742,6 +843,22 @@ const _completedTaskResponse = <String, Object?>{
       'socketaccesstoken': 'task-token',
       'status': 'task_postprocess_end',
       'pexit': '0',
+      'outputs': <Object?>[],
+    },
+  ],
+};
+
+const _failedTaskResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'total': '1',
+  'tasklist': [
+    {
+      'id': '42',
+      'socketaccesstoken': 'task-token',
+      'status': 'task_postprocess_end',
+      'pexit': '1',
+      'debugoutput': 'Model failed',
       'outputs': <Object?>[],
     },
   ],

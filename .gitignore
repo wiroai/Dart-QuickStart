@@ -3,6 +3,7 @@
 .dart_tool/
 coverage/
 build/
+doc/api/
 
 .DS_Store
 .idea/

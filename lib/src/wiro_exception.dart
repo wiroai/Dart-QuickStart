@@ -1,3 +1,5 @@
+import 'package:wiro_client/src/model/wiro_task.dart';
+
 /// Base class for all exceptions produced by the Wiro SDK.
 sealed class WiroException implements Exception {
   /// Creates a Wiro exception.
@@ -99,6 +101,20 @@ final class WiroUnknownApiException extends WiroApiException {
 final class WiroNetworkException extends WiroException {
   /// Creates a network exception.
   const WiroNetworkException(super.message, {super.cause});
+}
+
+/// Indicates that a task reached a terminal state without succeeding.
+final class WiroTaskFailedException extends WiroException {
+  /// Creates a task failure exception.
+  WiroTaskFailedException(this.task)
+    : super(
+        'Wiro task ${task.id.isEmpty ? 'unknown' : task.id} '
+        'finished with status ${task.statusValue} and exit code '
+        '${task.exitCode ?? 'unknown'}.',
+      );
+
+  /// Terminal task returned by Wiro.
+  final WiroTask task;
 }
 
 /// Indicates that a Wiro request exceeded its configured timeout.

@@ -6,8 +6,11 @@
 /// ```dart
 /// final client = WiroClient(apiKey: 'your-api-key');
 /// try {
-///   final models = await client.searchModels(search: 'image');
-///   print(models.items.first.identifier);
+///   final task = await client.subscribe(
+///     'black-forest-labs/flux-2-pro',
+///     parameters: {'prompt': 'A cinematic mountain lake'},
+///   );
+///   print(task.outputs.first.url);
 /// } finally {
 ///   client.close();
 /// }

@@ -12,7 +12,7 @@ Future<void> main() async {
 
   final client = WiroClient(apiKey: apiKey);
   try {
-    final run = await client.runModel(
+    final task = await client.subscribe(
       'openai/sora-2',
       parameters: {
         'prompt': 'A cinematic drone shot over snowy mountains',
@@ -20,17 +20,13 @@ Future<void> main() async {
         'resolution': '720p',
         'ratio': '16:9',
       },
+      onTaskUpdate: (task) {
+        stdout.writeln('Status: ${task.statusValue}');
+      },
     );
 
-    await for (final task in client.watchTask(run.taskToken)) {
-      stdout.writeln('Status: ${task.statusValue}');
-      if (task.isSuccessful) {
-        for (final output in task.outputs) {
-          stdout.writeln(output.url);
-        }
-      } else if (task.isFinished) {
-        throw StateError(task.debugOutput ?? 'Video generation failed.');
-      }
+    for (final output in task.outputs) {
+      stdout.writeln(output.url);
     }
   } finally {
     client.close();

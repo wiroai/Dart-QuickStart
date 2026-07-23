@@ -20,6 +20,9 @@ enum WiroAuthType {
   signature,
 }
 
+/// Receives a task snapshot while [WiroClient.subscribe] is polling.
+typedef WiroTaskUpdateCallback = void Function(WiroTask task);
+
 /// Client for the Wiro model and task APIs.
 final class WiroClient {
   /// Creates a Wiro API client.
@@ -165,19 +168,70 @@ final class WiroClient {
 
   /// Starts [model] with the supplied dynamic [parameters].
   ///
+  /// When [callbackUrl] is supplied, Wiro sends the completed task to that
+  /// webhook URL.
+  ///
   /// This billable operation is not retried automatically.
   Future<WiroRunResult> runModel(
     String model, {
     WiroJson parameters = const {},
+    Uri? callbackUrl,
     WiroCancellationToken? cancellationToken,
   }) {
     final (:owner, :project) = _parseModel(model);
+    final callback = callbackUrl == null
+        ? null
+        : _validateCallbackUrl(callbackUrl);
     return _post(
       '/Run/${Uri.encodeComponent(owner)}/${Uri.encodeComponent(project)}',
-      parameters,
+      {
+        ...parameters,
+        if (callback != null) 'callbackUrl': callback.toString(),
+      },
       WiroRunResult.fromJson,
       cancellationToken: cancellationToken,
       retryable: false,
+    );
+  }
+
+  /// Starts [model], polls it to completion, and returns its terminal task.
+  ///
+  /// [onTaskUpdate] receives every polled task snapshot. By default a terminal
+  /// task that did not succeed throws [WiroTaskFailedException]. Set
+  /// [throwOnTaskFailure] to `false` to inspect that task directly.
+  Future<WiroTask> subscribe(
+    String model, {
+    WiroJson parameters = const {},
+    Uri? callbackUrl,
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+    WiroTaskUpdateCallback? onTaskUpdate,
+    bool throwOnTaskFailure = true,
+  }) async {
+    final run = await runModel(
+      model,
+      parameters: parameters,
+      callbackUrl: callbackUrl,
+      cancellationToken: cancellationToken,
+    );
+
+    await for (final task in watchTask(
+      run.taskToken,
+      timeout: timeout,
+      cancellationToken: cancellationToken,
+    )) {
+      onTaskUpdate?.call(task);
+      if (task.status.isTerminal) {
+        if (throwOnTaskFailure && !task.isSuccessful) {
+          throw WiroTaskFailedException(task);
+        }
+        return task;
+      }
+    }
+
+    throw WiroTimeoutException(
+      'Task did not finish within ${timeout.inSeconds} seconds.',
+      timeout: timeout,
     );
   }
 
@@ -810,6 +864,21 @@ final class WiroClient {
         uri,
         'baseUri',
         'Must be an HTTP(S) origin without credentials, query, or fragment',
+      );
+    }
+    return uri;
+  }
+
+  static Uri _validateCallbackUrl(Uri uri) {
+    final hasHttpScheme = uri.scheme == 'https' || uri.scheme == 'http';
+    if (!hasHttpScheme ||
+        !uri.hasAuthority ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment) {
+      throw ArgumentError.value(
+        uri,
+        'callbackUrl',
+        'Must be an HTTP(S) URL without credentials or a fragment',
       );
     }
     return uri;
