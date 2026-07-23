@@ -96,19 +96,22 @@ void main() {
         httpClient: MockClient((request) async {
           expect(request.url.path, '/v1/Tool/List');
           final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body['search'], 'video');
+          expect(body['search'], 'image');
           expect(body['limit'], '10');
           return _jsonResponse(_modelListResponse);
         }),
       );
 
       final response = await client.searchModels(
-        search: 'video',
+        search: 'image',
         limit: 10,
       );
 
       expect(response.total, 1);
-      expect(response.items.single.identifier, 'openai/sora-2');
+      expect(
+        response.items.single.identifier,
+        'black-forest-labs/flux-2-pro',
+      );
     });
 
     test('validates pagination bounds', () {
@@ -137,9 +140,11 @@ void main() {
         ),
       );
 
-      final schema = await client.getModelSchema('openai/sora-2');
+      final schema = await client.getModelSchema(
+        'black-forest-labs/flux-2-pro',
+      );
 
-      expect(schema.model.identifier, 'openai/sora-2');
+      expect(schema.model.identifier, 'black-forest-labs/flux-2-pro');
       expect(schema.parameters.single.id, 'prompt');
     });
 
@@ -147,7 +152,10 @@ void main() {
       final client = WiroClient(
         apiKey: 'test-key',
         httpClient: MockClient((request) async {
-          expect(request.url.path, '/v1/Run/openai/sora-2');
+          expect(
+            request.url.path,
+            '/v1/Run/black-forest-labs/flux-2-pro',
+          );
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['prompt'], 'A mountain');
           expect(body['callbackUrl'], 'https://example.com/wiro');
@@ -156,7 +164,7 @@ void main() {
       );
 
       final result = await client.runModel(
-        'openai/sora-2',
+        'black-forest-labs/flux-2-pro',
         parameters: {'prompt': 'A mountain'},
         callbackUrl: Uri.parse('https://example.com/wiro'),
       );
@@ -173,7 +181,7 @@ void main() {
 
       expect(
         () => client.runModel(
-          'openai/sora-2',
+          'black-forest-labs/flux-2-pro',
           callbackUrl: Uri.parse('file:///tmp/callback'),
         ),
         throwsArgumentError,
@@ -778,10 +786,10 @@ const _modelListResponse = <String, Object?>{
   'tool': [
     {
       'id': '42',
-      'title': 'Sora 2',
-      'cleanslugowner': 'openai',
-      'cleanslugproject': 'sora-2',
-      'categories': ['text-to-video'],
+      'title': 'FLUX.2 Pro',
+      'cleanslugowner': 'black-forest-labs',
+      'cleanslugproject': 'flux-2-pro',
+      'categories': ['text-to-image'],
     },
   ],
 };
@@ -792,9 +800,9 @@ const _modelSchemaResponse = <String, Object?>{
   'tool': [
     {
       'id': '42',
-      'title': 'Sora 2',
-      'cleanslugowner': 'openai',
-      'cleanslugproject': 'sora-2',
+      'title': 'FLUX.2 Pro',
+      'cleanslugowner': 'black-forest-labs',
+      'cleanslugproject': 'flux-2-pro',
       'parameters': [
         {
           'title': 'Inputs',
