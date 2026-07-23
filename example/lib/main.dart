@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:wiro_ai/wiro_ai.dart';
 
@@ -66,8 +64,15 @@ final class _ModelExplorerPageState extends State<ModelExplorerPage> {
 
     _isLoading.value = true;
     try {
-      final response = await client.explore();
-      _result.value = const JsonEncoder.withIndent('  ').convert(response);
+      final categories = await client.explore();
+      _result.value = categories
+          .map((category) {
+            final models = category.models
+                .map((model) => '• ${model.identifier}')
+                .join('\n');
+            return '${category.title}\n$models';
+          })
+          .join('\n\n');
     } on Object catch (error) {
       _result.value = 'Request failed: $error';
     } finally {

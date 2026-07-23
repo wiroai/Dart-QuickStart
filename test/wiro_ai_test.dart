@@ -20,13 +20,30 @@ void main() {
         expect(body['search'], 'video');
         expect(body['limit'], '10');
 
-        return http.Response('{"toolboxdata":[]}', 200);
+        return http.Response(
+          jsonEncode({
+            'result': true,
+            'errors': <Object?>[],
+            'total': '1',
+            'tool': [
+              {
+                'id': '42',
+                'title': 'Sora 2',
+                'cleanslugowner': 'openai',
+                'cleanslugproject': 'sora-2',
+                'categories': ['text-to-video'],
+              },
+            ],
+          }),
+          200,
+        );
       });
       final client = WiroClient(apiKey: 'test-key', httpClient: httpClient);
 
       final response = await client.searchModels(search: 'video', limit: 10);
 
-      expect(response['toolboxdata'], isEmpty);
+      expect(response.total, 1);
+      expect(response.items.single.identifier, 'openai/sora-2');
       client.close();
     });
 

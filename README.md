@@ -10,6 +10,7 @@ The official Dart client for discovering and running AI models on
 - Run image, video, audio, and other generative models
 - Upload files
 - Inspect, wait for, cancel, and stop tasks
+- Typed models, schemas, tasks, and results
 - API key and signature-based authentication
 - Pure Dart core with a Flutter example application
 
@@ -31,7 +32,9 @@ Future<void> main() async {
 
   try {
     final models = await client.searchModels(search: 'video');
-    print(models);
+    for (final model in models.items) {
+      print(model.identifier);
+    }
   } finally {
     client.close();
   }
@@ -41,15 +44,21 @@ Future<void> main() async {
 Run a model and wait for its result:
 
 ```dart
-final task = await client.runModel(
+final run = await client.runModel(
   'openai/sora-2',
   parameters: {
     'prompt': 'A cinematic drone shot over snowy mountains',
+    'seconds': '4',
+    'resolution': '720p',
   },
 );
 
-final taskToken = task['tasktoken'] as String;
-final result = await client.waitForTask(taskToken);
+final task = await client.waitForTask(run.taskToken);
+if (task.isSuccessful) {
+  for (final output in task.outputs) {
+    print(output.url);
+  }
+}
 ```
 
 ## Authentication
