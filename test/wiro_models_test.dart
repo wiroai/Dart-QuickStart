@@ -6,21 +6,21 @@ void main() {
     test('parses model metadata and parameters', () {
       final schema = WiroModelSchema.fromJson({
         'id': '1',
-        'title': 'Sora 2',
-        'cleanslugowner': 'openai',
-        'cleanslugproject': 'sora-2',
-        'categories': ['text-to-video'],
+        'title': 'FLUX.2 Pro',
+        'cleanslugowner': 'black-forest-labs',
+        'cleanslugproject': 'flux-2-pro',
+        'categories': ['text-to-image'],
         'parameters': [
           {
             'title': 'Inputs',
             'items': [
               {
-                'id': 'seconds',
+                'id': 'outputFormat',
                 'type': 'select',
-                'label': 'Seconds',
+                'label': 'Output format',
                 'required': true,
                 'options': [
-                  {'label': '4 seconds', 'value': '4'},
+                  {'label': 'PNG', 'value': 'png'},
                 ],
               },
             ],
@@ -28,11 +28,11 @@ void main() {
         ],
       });
 
-      expect(schema.model.identifier, 'openai/sora-2');
-      expect(schema.model.categories, ['text-to-video']);
-      expect(schema.parameters.single.id, 'seconds');
+      expect(schema.model.identifier, 'black-forest-labs/flux-2-pro');
+      expect(schema.model.categories, ['text-to-image']);
+      expect(schema.parameters.single.id, 'outputFormat');
       expect(schema.parameters.single.isRequired, isTrue);
-      expect(schema.parameters.single.options.single.value, '4');
+      expect(schema.parameters.single.options.single.value, 'png');
     });
 
     test('parses optional model metadata and task statistics', () {
@@ -181,21 +181,24 @@ void main() {
   group('WiroExploreCategory', () {
     test('parses curated model groups', () {
       final category = WiroExploreCategory.fromJson({
-        'id': 'video',
-        'title': 'Video',
-        'url': 'https://wiro.ai/models/video',
+        'id': 'image',
+        'title': 'Image',
+        'url': 'https://wiro.ai/models/image',
         'tools': [
           {
             'id': '1',
-            'cleanslugowner': 'openai',
-            'cleanslugproject': 'sora-2',
+            'cleanslugowner': 'black-forest-labs',
+            'cleanslugproject': 'flux-2-pro',
           },
         ],
       });
 
-      expect(category.id, 'video');
+      expect(category.id, 'image');
       expect(category.total, 1);
-      expect(category.models.single.identifier, 'openai/sora-2');
+      expect(
+        category.models.single.identifier,
+        'black-forest-labs/flux-2-pro',
+      );
       expect(category.url?.host, 'wiro.ai');
     });
   });
