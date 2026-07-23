@@ -6,9 +6,12 @@ void main() {
   runApp(const WiroAiExampleApp(apiKey: apiKey));
 }
 
+/// Root application for the Wiro Flutter example.
 final class WiroAiExampleApp extends StatelessWidget {
+  /// Creates the example application.
   const WiroAiExampleApp({required this.apiKey, super.key});
 
+  /// API key used only for local demonstration.
   final String apiKey;
 
   @override
@@ -25,9 +28,12 @@ final class WiroAiExampleApp extends StatelessWidget {
   }
 }
 
+/// Displays curated Wiro models.
 final class ModelExplorerPage extends StatefulWidget {
+  /// Creates the model explorer.
   const ModelExplorerPage({required this.apiKey, super.key});
 
+  /// API key used only for local demonstration.
   final String apiKey;
 
   @override

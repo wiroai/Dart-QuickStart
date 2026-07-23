@@ -34,6 +34,34 @@ void main() {
       expect(schema.parameters.single.isRequired, isTrue);
       expect(schema.parameters.single.options.single.value, '4');
     });
+
+    test('parses optional model metadata and task statistics', () {
+      final model = WiroModel.fromJson({
+        'id': 1,
+        'slugowner': 'wiro',
+        'slugproject': 'demo',
+        'description': 'Demo model',
+        'seodescription': 'SEO description',
+        'image': 'https://cdn.wiro.ai/model.png',
+        'tags': ['featured'],
+        'samples': ['https://cdn.wiro.ai/sample.png'],
+        'computingtime': '5',
+        'approximatelycost': '0.1',
+        'dynamicprice': 'true',
+        'cps': '1',
+        'taskstat': {
+          'runcount': 10,
+          'successcount': '8',
+          'errorcount': '2',
+          'lastruntime': '2026-07-23',
+        },
+      });
+
+      expect(model.identifier, 'wiro/demo');
+      expect(model.imageUrl?.host, 'cdn.wiro.ai');
+      expect(model.taskStats?.successCount, 8);
+      expect(model.tags, ['featured']);
+    });
   });
 
   group('WiroPaginatedResult', () {
@@ -103,6 +131,23 @@ void main() {
       expect(task.outputs.single.url?.host, 'cdn.wiro.ai');
     });
 
+    test('parses structured language-model output', () {
+      final output = WiroTaskOutput.fromJson({
+        'contenttype': 'raw',
+        'content': {
+          'prompt': 'Hello',
+          'raw': 'Raw response',
+          'thinking': ['Think'],
+          'answer': ['Answer'],
+        },
+      });
+
+      expect(output.content?.prompt, 'Hello');
+      expect(output.content?.rawText, 'Raw response');
+      expect(output.content?.thinking, ['Think']);
+      expect(output.content?.answers, ['Answer']);
+    });
+
     test('preserves an unknown status', () {
       final task = WiroTask.fromJson({'id': '1', 'status': 'task_new_status'});
 
@@ -130,6 +175,42 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(result.files.single.name, 'photo.png');
       expect(result.files.single.size, 2048);
+    });
+  });
+
+  group('WiroExploreCategory', () {
+    test('parses curated model groups', () {
+      final category = WiroExploreCategory.fromJson({
+        'id': 'video',
+        'title': 'Video',
+        'url': 'https://wiro.ai/models/video',
+        'tools': [
+          {
+            'id': '1',
+            'cleanslugowner': 'openai',
+            'cleanslugproject': 'sora-2',
+          },
+        ],
+      });
+
+      expect(category.id, 'video');
+      expect(category.total, 1);
+      expect(category.models.single.identifier, 'openai/sora-2');
+      expect(category.url?.host, 'wiro.ai');
+    });
+  });
+
+  group('WiroApiError', () {
+    test('parses response errors and fallbacks', () {
+      final errors = parseWiroApiErrors([
+        {'code': 42, 'message': 'Invalid input'},
+        <String, Object?>{},
+      ]);
+      final fallback = WiroApiError.fromJson(const {});
+
+      expect(errors.single.code, 42);
+      expect(errors.single.message, 'Invalid input');
+      expect(fallback.message, 'Unknown Wiro API error');
     });
   });
 }

@@ -1,79 +1,552 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:wiro_ai/wiro_ai.dart';
 import 'package:test/test.dart';
+import 'package:wiro_ai/wiro_ai.dart';
 
 void main() {
-  group('WiroClient', () {
+  group('WiroClient configuration', () {
     test('rejects an empty API key', () {
       expect(() => WiroClient(apiKey: ''), throwsArgumentError);
     });
 
-    test('searches models with API key authentication', () async {
-      final httpClient = MockClient((request) async {
-        expect(request.url.path, '/v1/Tool/List');
-        expect(request.headers['x-api-key'], 'test-key');
+    test('rejects invalid timeout and polling values', () {
+      expect(
+        () => WiroClient(
+          apiKey: 'key',
+          requestTimeout: Duration.zero,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => WiroClient(
+          apiKey: 'key',
+          pollInterval: const Duration(milliseconds: -1),
+        ),
+        throwsArgumentError,
+      );
+    });
 
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body['search'], 'video');
-        expect(body['limit'], '10');
+    test('uses API key authentication', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          expect(request.headers['x-api-key'], 'test-key');
+          expect(request.headers['x-signature'], isNull);
+          return _jsonResponse(_emptyExploreResponse);
+        }),
+      );
 
-        return http.Response(
-          jsonEncode({
-            'result': true,
-            'errors': <Object?>[],
-            'total': '1',
-            'tool': [
-              {
-                'id': '42',
-                'title': 'Sora 2',
-                'cleanslugowner': 'openai',
-                'cleanslugproject': 'sora-2',
-                'categories': ['text-to-video'],
-              },
-            ],
-          }),
-          200,
-        );
-      });
-      final client = WiroClient(apiKey: 'test-key', httpClient: httpClient);
+      expect(client.authType, WiroAuthType.apiKey);
+      await client.explore();
+      client.close();
+    });
 
-      final response = await client.searchModels(search: 'video', limit: 10);
+    test('generates a valid signature', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        apiSecret: 'test-secret',
+        httpClient: MockClient((request) async {
+          final nonce = request.headers['x-nonce'];
+          final signature = request.headers['x-signature'];
+          expect(nonce, isNotNull);
+          final expected = Hmac(
+            sha256,
+            utf8.encode('test-key'),
+          ).convert(utf8.encode('test-secret$nonce'));
+          expect(signature, '$expected');
+          return _jsonResponse(_emptyExploreResponse);
+        }),
+      );
+
+      expect(client.authType, WiroAuthType.signature);
+      await client.explore();
+      client.close();
+    });
+  });
+
+  group('WiroClient model APIs', () {
+    test('searches models with typed pagination', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/v1/Tool/List');
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['search'], 'video');
+          expect(body['limit'], '10');
+          return _jsonResponse(_modelListResponse);
+        }),
+      );
+
+      final response = await client.searchModels(
+        search: 'video',
+        limit: 10,
+      );
 
       expect(response.total, 1);
       expect(response.items.single.identifier, 'openai/sora-2');
-      client.close();
+    });
+
+    test('returns a typed model schema', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient(
+          (_) async => _jsonResponse(_modelSchemaResponse),
+        ),
+      );
+
+      final schema = await client.getModelSchema('openai/sora-2');
+
+      expect(schema.model.identifier, 'openai/sora-2');
+      expect(schema.parameters.single.id, 'prompt');
+    });
+
+    test('runs a model with dynamic parameters', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/v1/Run/openai/sora-2');
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['prompt'], 'A mountain');
+          return _jsonResponse(_runResponse);
+        }),
+      );
+
+      final result = await client.runModel(
+        'openai/sora-2',
+        parameters: {'prompt': 'A mountain'},
+      );
+
+      expect(result.taskId, '42');
+      expect(result.taskToken, 'task-token');
     });
 
     test('rejects an invalid model slug', () {
       final client = WiroClient(
         apiKey: 'test-key',
-        httpClient: MockClient((_) async => http.Response('{}', 200)),
+        httpClient: MockClient((_) async => _jsonResponse(const {})),
       );
 
-      expect(() => client.getModelSchema('invalid'), throwsArgumentError);
-      client.close();
+      expect(
+        () => client.getModelSchema('invalid'),
+        throwsArgumentError,
+      );
     });
+  });
 
-    test('throws WiroApiException for an API error', () async {
+  group('WiroClient task APIs', () {
+    test('gets task details by token', () async {
       final client = WiroClient(
         apiKey: 'test-key',
-        httpClient: MockClient((_) async => http.Response('Unauthorized', 401)),
+        httpClient: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['tasktoken'], 'task-token');
+          return _jsonResponse(_completedTaskResponse);
+        }),
+      );
+
+      final task = await client.getTask(taskToken: 'task-token');
+
+      expect(task.status, WiroTaskStatus.completed);
+      expect(task.isSuccessful, isTrue);
+    });
+
+    test('requires a token or an ID', () {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((_) async => _jsonResponse(const {})),
+      );
+
+      expect(client.getTask, throwsArgumentError);
+    });
+
+    test('waits until the task is terminal', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: Duration.zero,
+        httpClient: MockClient((_) async {
+          requestCount++;
+          return _jsonResponse(
+            requestCount == 1 ? _runningTaskResponse : _completedTaskResponse,
+          );
+        }),
+      );
+
+      final task = await client.waitForTask('task-token');
+
+      expect(task.status, WiroTaskStatus.completed);
+      expect(requestCount, 2);
+    });
+
+    test('streams task status changes', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: Duration.zero,
+        httpClient: MockClient((_) async {
+          requestCount++;
+          return _jsonResponse(
+            requestCount == 1 ? _runningTaskResponse : _completedTaskResponse,
+          );
+        }),
+      );
+
+      final tasks = await client.watchTask('task-token').toList();
+
+      expect(
+        tasks.map((task) => task.status),
+        [WiroTaskStatus.running, WiroTaskStatus.completed],
+      );
+    });
+
+    test('throws when task polling times out', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: const Duration(milliseconds: 2),
+        httpClient: MockClient(
+          (_) async => _jsonResponse(_runningTaskResponse),
+        ),
+      );
+
+      await expectLater(
+        client.waitForTask(
+          'task-token',
+          timeout: const Duration(milliseconds: 1),
+        ),
+        throwsA(isA<WiroTimeoutException>()),
+      );
+    });
+
+    test('cancels and kills tasks', () async {
+      final paths = <String>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          paths.add(request.url.path);
+          return _jsonResponse(const {'result': true});
+        }),
+      );
+
+      expect(await client.cancelTask('task-token'), isTrue);
+      expect(await client.killTask('task-token'), isTrue);
+      expect(paths, ['/v1/Task/Cancel', '/v1/Task/Kill']);
+    });
+  });
+
+  group('WiroClient upload', () {
+    test('uploads bytes as multipart data', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient.streaming((request, bodyStream) async {
+          expect(request.url.path, '/v1/File/Upload');
+          expect(request.headers['content-type'], contains('multipart/form'));
+          final body = utf8.decode(await bodyStream.toBytes());
+          expect(body, contains('photo.png'));
+          expect(body, contains('image-data'));
+          return _streamedJsonResponse(_uploadResponse);
+        }),
+      );
+
+      final result = await client.uploadFile(
+        utf8.encode('image-data'),
+        fileName: 'photo.png',
+      );
+
+      expect(result.files.single.name, 'photo.png');
+    });
+  });
+
+  group('WiroClient failures', () {
+    for (final (statusCode, exceptionType) in [
+      (401, WiroAuthenticationException),
+      (404, WiroUnknownApiException),
+      (422, WiroValidationException),
+      (429, WiroRateLimitException),
+      (500, WiroUnknownApiException),
+    ]) {
+      test('maps $statusCode responses to $exceptionType', () async {
+        final client = WiroClient(
+          apiKey: 'test-key',
+          retryPolicy: const WiroRetryPolicy.none(),
+          httpClient: MockClient(
+            (_) async => _jsonResponse(
+              const {
+                'result': false,
+                'errors': [
+                  {'message': 'Request failed'},
+                ],
+              },
+              statusCode: statusCode,
+              headers: statusCode == 429
+                  ? const {'retry-after': '2'}
+                  : const {},
+            ),
+          ),
+        );
+
+        await expectLater(
+          client.explore(),
+          throwsA(
+            isA<WiroApiException>()
+                .having(
+                  (error) => error.runtimeType,
+                  'runtimeType',
+                  exceptionType,
+                )
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  statusCode,
+                ),
+          ),
+        );
+      });
+    }
+
+    test('exposes retry-after on rate-limit errors', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy.none(),
+        httpClient: MockClient(
+          (_) async => _jsonResponse(
+            const {'message': 'Slow down'},
+            statusCode: 429,
+            headers: const {'retry-after': '3'},
+          ),
+        ),
       );
 
       await expectLater(
         client.explore(),
         throwsA(
-          isA<WiroApiException>().having(
-            (error) => error.statusCode,
-            'statusCode',
-            401,
+          isA<WiroRateLimitException>().having(
+            (error) => error.retryAfter,
+            'retryAfter',
+            const Duration(seconds: 3),
           ),
         ),
       );
-      client.close();
+    });
+
+    test('maps invalid JSON to an unknown API error', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((_) async => http.Response('invalid', 200)),
+      );
+
+      await expectLater(
+        client.explore(),
+        throwsA(isA<WiroUnknownApiException>()),
+      );
+    });
+
+    test('maps client failures to a network error', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy.none(),
+        httpClient: MockClient(
+          (_) async => throw http.ClientException('offline'),
+        ),
+      );
+
+      await expectLater(
+        client.explore(),
+        throwsA(isA<WiroNetworkException>()),
+      );
+    });
+
+    test('times out an individual request', () async {
+      final client = WiroClient(
+        apiKey: 'test-key',
+        requestTimeout: const Duration(milliseconds: 1),
+        retryPolicy: const WiroRetryPolicy.none(),
+        httpClient: _abortableMockClient(),
+      );
+
+      await expectLater(
+        client.explore(),
+        throwsA(isA<WiroTimeoutException>()),
+      );
+    });
+
+    test('cancels an individual request', () async {
+      final cancellationToken = WiroCancellationToken();
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy.none(),
+        httpClient: _abortableMockClient(),
+      );
+
+      final request = client.explore(cancellationToken: cancellationToken);
+      cancellationToken.cancel();
+
+      await expectLater(
+        request,
+        throwsA(isA<WiroRequestCancelledException>()),
+      );
+    });
+  });
+
+  group('WiroClient retries and logging', () {
+    test('retries transient status codes with backoff', () async {
+      var requestCount = 0;
+      final events = <WiroLogEvent>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        retryPolicy: const WiroRetryPolicy(
+          maxRetries: 1,
+          initialDelay: Duration.zero,
+          maximumDelay: Duration.zero,
+        ),
+        logger: events.add,
+        httpClient: MockClient((_) async {
+          requestCount++;
+          return requestCount == 1
+              ? http.Response('Unavailable', 503)
+              : _jsonResponse(_emptyExploreResponse);
+        }),
+      );
+
+      await client.explore();
+
+      expect(requestCount, 2);
+      expect(
+        events.where((event) => event.level == WiroLogLevel.warning),
+        hasLength(1),
+      );
+      expect(
+        events.every((event) => !event.message.contains('test-key')),
+        isTrue,
+      );
     });
   });
 }
+
+MockClient _abortableMockClient() {
+  return MockClient.streaming((request, bodyStream) async {
+    await bodyStream.drain<void>();
+    final abortTrigger = (request as http.Abortable).abortTrigger;
+    await abortTrigger;
+    throw http.RequestAbortedException(request.url);
+  });
+}
+
+http.Response _jsonResponse(
+  Map<String, Object?> body, {
+  int statusCode = 200,
+  Map<String, String> headers = const {},
+}) {
+  return http.Response(
+    jsonEncode(body),
+    statusCode,
+    headers: headers,
+  );
+}
+
+http.StreamedResponse _streamedJsonResponse(Map<String, Object?> body) {
+  return http.StreamedResponse(
+    Stream.value(utf8.encode(jsonEncode(body))),
+    200,
+  );
+}
+
+const _emptyExploreResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'explore': <Object?>[],
+};
+
+const _modelListResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'total': '1',
+  'tool': [
+    {
+      'id': '42',
+      'title': 'Sora 2',
+      'cleanslugowner': 'openai',
+      'cleanslugproject': 'sora-2',
+      'categories': ['text-to-video'],
+    },
+  ],
+};
+
+const _modelSchemaResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'tool': [
+    {
+      'id': '42',
+      'title': 'Sora 2',
+      'cleanslugowner': 'openai',
+      'cleanslugproject': 'sora-2',
+      'parameters': [
+        {
+          'title': 'Inputs',
+          'items': [
+            {
+              'id': 'prompt',
+              'type': 'textarea',
+              'label': 'Prompt',
+              'required': true,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+const _runResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'taskid': '42',
+  'socketaccesstoken': 'task-token',
+};
+
+const _runningTaskResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'total': '1',
+  'tasklist': [
+    {
+      'id': '42',
+      'socketaccesstoken': 'task-token',
+      'status': 'task_start',
+      'outputs': <Object?>[],
+    },
+  ],
+};
+
+const _completedTaskResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'total': '1',
+  'tasklist': [
+    {
+      'id': '42',
+      'socketaccesstoken': 'task-token',
+      'status': 'task_postprocess_end',
+      'pexit': '0',
+      'outputs': <Object?>[],
+    },
+  ],
+};
+
+const _uploadResponse = <String, Object?>{
+  'result': true,
+  'errors': <Object?>[],
+  'list': [
+    {
+      'id': 'file-1',
+      'name': 'photo.png',
+      'contenttype': 'image/png',
+      'size': '10',
+      'url': 'https://cdn.wiro.ai/photo.png',
+    },
+  ],
+};
