@@ -10,6 +10,7 @@ import 'package:wiro_client/src/model/wiro_model.dart';
 import 'package:wiro_client/src/model/wiro_result.dart';
 import 'package:wiro_client/src/model/wiro_socket.dart';
 import 'package:wiro_client/src/model/wiro_task.dart';
+import 'package:wiro_client/src/model/wiro_task_update.dart';
 import 'package:wiro_client/src/wiro_exception.dart';
 import 'package:wiro_client/src/wiro_request.dart';
 
@@ -21,9 +22,6 @@ enum WiroAuthType {
   /// Signs every request with the API key and secret.
   signature,
 }
-
-/// Receives a task snapshot while [WiroClient.subscribe] is polling.
-typedef WiroTaskUpdateCallback = void Function(WiroTask task);
 
 /// Client for the Wiro model and task APIs.
 final class WiroClient {
@@ -202,20 +200,30 @@ final class WiroClient {
     );
   }
 
-  /// Starts [model], polls it to completion, and returns its terminal task.
+  /// Starts [model], tracks it to completion, and returns its terminal task.
   ///
-  /// [onTaskUpdate] receives every polled task snapshot. By default a terminal
-  /// task that did not succeed throws [WiroTaskFailedException]. Set
-  /// [throwOnTaskFailure] to `false` to inspect that task directly.
+  /// [trackingMode] chooses polling or WebSocket tracking. [onUpdate] receives
+  /// the same normalized update type for both transports. By default a
+  /// terminal task that did not succeed throws [WiroTaskFailedException].
+  /// Set [throwOnTaskFailure] to `false` to inspect that task directly.
   Future<WiroTask> subscribe(
     String model, {
     WiroJson parameters = const {},
     Uri? callbackUrl,
     Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
-    WiroTaskUpdateCallback? onTaskUpdate,
+    WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
+    WiroTaskUpdateCallback? onUpdate,
     bool throwOnTaskFailure = true,
   }) async {
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(
+        timeout,
+        'timeout',
+        'Must be greater than zero',
+      );
+    }
+
     final run = await runModel(
       model,
       parameters: parameters,
@@ -223,16 +231,40 @@ final class WiroClient {
       cancellationToken: cancellationToken,
     );
 
+    final task = switch (trackingMode) {
+      WiroTaskTrackingMode.polling => await _trackTaskWithPolling(
+        run.taskToken,
+        timeout: timeout,
+        cancellationToken: cancellationToken,
+        onUpdate: onUpdate,
+      ),
+      WiroTaskTrackingMode.webSocket => await _trackTaskWithSocket(
+        run.taskToken,
+        timeout: timeout,
+        cancellationToken: cancellationToken,
+        onUpdate: onUpdate,
+      ),
+    };
+
+    if (throwOnTaskFailure && !task.isSuccessful) {
+      throw WiroTaskFailedException(task);
+    }
+    return task;
+  }
+
+  Future<WiroTask> _trackTaskWithPolling(
+    String taskToken, {
+    required Duration timeout,
+    WiroCancellationToken? cancellationToken,
+    WiroTaskUpdateCallback? onUpdate,
+  }) async {
     await for (final task in watchTask(
-      run.taskToken,
+      taskToken,
       timeout: timeout,
       cancellationToken: cancellationToken,
     )) {
-      onTaskUpdate?.call(task);
+      onUpdate?.call(WiroTaskUpdate.fromTask(task));
       if (task.status.isTerminal) {
-        if (throwOnTaskFailure && !task.isSuccessful) {
-          throw WiroTaskFailedException(task);
-        }
         return task;
       }
     }
@@ -240,6 +272,44 @@ final class WiroClient {
     throw WiroTimeoutException(
       'Task did not finish within ${timeout.inSeconds} seconds.',
       timeout: timeout,
+    );
+  }
+
+  Future<WiroTask> _trackTaskWithSocket(
+    String taskToken, {
+    required Duration timeout,
+    WiroCancellationToken? cancellationToken,
+    WiroTaskUpdateCallback? onUpdate,
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    await for (final event in watchTaskSocket(
+      taskToken,
+      timeout: timeout,
+      cancellationToken: cancellationToken,
+    )) {
+      onUpdate?.call(WiroTaskUpdate.fromSocketEvent(event));
+    }
+
+    final task = await getTask(
+      taskToken: taskToken,
+      cancellationToken: cancellationToken,
+    );
+    if (task.status.isTerminal) {
+      return task;
+    }
+
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      throw WiroTimeoutException(
+        'Task did not finish within ${timeout.inSeconds} seconds.',
+        timeout: timeout,
+      );
+    }
+    return _trackTaskWithPolling(
+      taskToken,
+      timeout: remaining,
+      cancellationToken: cancellationToken,
+      onUpdate: onUpdate,
     );
   }
 

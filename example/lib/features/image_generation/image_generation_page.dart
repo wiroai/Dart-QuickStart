@@ -94,9 +94,9 @@ final class _ImageGenerationPageState extends State<ImageGenerationPage> {
           'outputFormat': 'png',
         },
         cancellationToken: cancellationToken,
-        onTaskUpdate: (task) {
+        onUpdate: (update) {
           if (mounted) {
-            _state.value = ImageGenerationLoading(task.status.name);
+            _state.value = ImageGenerationLoading(update.status.name);
           }
         },
       );

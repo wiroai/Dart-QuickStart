@@ -74,15 +74,15 @@ Responses are fully typed.
 
 ```dart
 final task = await client.subscribe(
-  'openai/sora-2',
+  'black-forest-labs/flux-2-pro',
   parameters: {
-    'prompt': 'A cinematic drone shot over snowy mountains',
-    'seconds': '4',
-    'resolution': '720p',
-    'ratio': '16:9',
+    'prompt': 'A cinematic mountain lake at sunrise',
+    'width': 1024,
+    'height': 1024,
   },
-  onTaskUpdate: (task) {
-    print(task.statusValue);
+  trackingMode: WiroTaskTrackingMode.webSocket,
+  onUpdate: (update) {
+    print('${update.statusValue}: ${update.progress?.percentage}');
   },
 );
 
@@ -92,8 +92,10 @@ for (final output in task.outputs) {
 ```
 
 `subscribe` throws `WiroTaskFailedException` when the terminal task did not
-succeed. Use the lower-level API when submission and polling must be managed
-separately:
+succeed. `trackingMode` can be `polling` or `webSocket`; polling is the
+backward-compatible default. Both modes emit `WiroTaskUpdate`.
+
+Use the lower-level API when submission and tracking must be managed separately:
 
 ```dart
 final run = await client.runModel(

@@ -227,7 +227,7 @@ void main() {
   group('WiroClient task APIs', () {
     test('subscribes to a model until it succeeds', () async {
       var detailRequestCount = 0;
-      final updates = <WiroTask>[];
+      final updates = <WiroTaskUpdate>[];
       final client = WiroClient(
         apiKey: 'test-key',
         pollInterval: Duration.zero,
@@ -246,14 +246,37 @@ void main() {
 
       final task = await client.subscribe(
         'wiro/demo',
-        onTaskUpdate: updates.add,
+        onUpdate: updates.add,
       );
 
       expect(task.isSuccessful, isTrue);
       expect(
-        updates.map((task) => task.status),
+        updates.map((update) => update.status),
         [WiroTaskStatus.running, WiroTaskStatus.completed],
       );
+      expect(
+        updates.every(
+          (update) => update.source == WiroTaskUpdateSource.polling,
+        ),
+        isTrue,
+      );
+    });
+
+    test('validates subscription timeout before running a model', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          requestCount++;
+          return _jsonResponse(_runResponse);
+        }),
+      );
+
+      await expectLater(
+        client.subscribe('wiro/demo', timeout: Duration.zero),
+        throwsArgumentError,
+      );
+      expect(requestCount, 0);
     });
 
     test('throws a typed exception for a failed subscription', () async {
@@ -431,6 +454,80 @@ void main() {
   });
 
   group('WiroClient task WebSocket', () {
+    test('subscribes with normalized WebSocket updates', () async {
+      final server = await _SocketTestServer.start((socket) async {
+        await socket.first;
+        socket
+          ..add(jsonEncode(_socketEvent('task_queue')))
+          ..add(
+            jsonEncode(
+              _socketEvent(
+                'task_output',
+                message: const {
+                  'type': 'progressGenerate',
+                  'percentage': '75',
+                },
+              ),
+            ),
+          )
+          ..add(
+            jsonEncode(
+              _socketEvent(
+                'task_postprocess_end',
+                message: const [
+                  {
+                    'name': 'result.png',
+                    'contenttype': 'image/png',
+                    'url': 'https://cdn.wiro.ai/result.png',
+                  },
+                ],
+              ),
+            ),
+          );
+      });
+      addTearDown(server.close);
+      final paths = <String>[];
+      final updates = <WiroTaskUpdate>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        socketUri: server.uri,
+        httpClient: MockClient((request) async {
+          paths.add(request.url.path);
+          return _jsonResponse(
+            request.url.path.startsWith('/v1/Run')
+                ? _runResponse
+                : _completedTaskResponse,
+          );
+        }),
+      );
+
+      final task = await client.subscribe(
+        'wiro/demo',
+        trackingMode: WiroTaskTrackingMode.webSocket,
+        onUpdate: updates.add,
+      );
+
+      expect(task.isSuccessful, isTrue);
+      expect(paths, ['/v1/Run/wiro/demo', '/v1/Task/Detail']);
+      expect(
+        updates.map((update) => update.status),
+        [
+          WiroTaskStatus.queued,
+          WiroTaskStatus.output,
+          WiroTaskStatus.completed,
+        ],
+      );
+      expect(
+        updates.every(
+          (update) => update.source == WiroTaskUpdateSource.webSocket,
+        ),
+        isTrue,
+      );
+      expect(updates[1].progress?.percentage, 75);
+      expect(updates.last.outputs.single.name, 'result.png');
+      await server.done;
+    });
+
     test('rejects invalid socket watch values', () async {
       final client = WiroClient(apiKey: 'test-key');
 

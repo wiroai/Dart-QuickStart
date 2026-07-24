@@ -12,32 +12,22 @@ Future<void> main() async {
 
   final client = WiroClient(apiKey: apiKey);
   try {
-    final run = await client.runModel(
+    final task = await client.subscribe(
       'runway/gen-4-5',
       parameters: {
         'prompt': 'A cinematic drone shot over snowy mountains',
         'ratio': '16:9',
         'duration': 2,
       },
-    );
-
-    await for (final event in client.watchTaskSocket(run.taskToken)) {
-      if (event case WiroSocketMessageEvent(
-        :final statusValue,
-        :final progress,
-      )) {
-        final percentage = progress?.percentage;
+      trackingMode: WiroTaskTrackingMode.webSocket,
+      onUpdate: (update) {
+        final percentage = update.progress?.percentage;
         stdout.writeln(
-          'Status: $statusValue'
+          'Status: ${update.statusValue}'
           '${percentage == null ? '' : ' ($percentage%)'}',
         );
-      }
-    }
-
-    final task = await client.getTask(taskToken: run.taskToken);
-    if (!task.isSuccessful) {
-      throw WiroTaskFailedException(task);
-    }
+      },
+    );
     for (final output in task.outputs) {
       stdout.writeln(output.url);
     }
