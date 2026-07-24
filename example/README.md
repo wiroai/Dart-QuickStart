@@ -19,8 +19,8 @@ WIRO_API_KEY=your-api-key dart run bin/generate_image.dart
 WIRO_API_KEY=your-api-key dart run bin/generate_video.dart
 ```
 
-The image example uses `subscribe` with polling. The video example uses
-`runModel` and `watchTaskSocket` to print realtime task events.
+Both examples use `subscribe`. Image generation uses the default polling mode;
+video generation selects `WiroTaskTrackingMode.webSocket`.
 
 Do not embed long-lived API credentials in production mobile builds.
 Route production requests through your backend and keep Wiro credentials

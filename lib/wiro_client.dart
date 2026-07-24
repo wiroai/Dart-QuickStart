@@ -22,6 +22,7 @@ export 'src/model/wiro_model.dart';
 export 'src/model/wiro_result.dart' hide parseWiroApiErrors;
 export 'src/model/wiro_socket.dart';
 export 'src/model/wiro_task.dart';
+export 'src/model/wiro_task_update.dart';
 export 'src/wiro_client.dart';
 export 'src/wiro_exception.dart';
 export 'src/wiro_request.dart';

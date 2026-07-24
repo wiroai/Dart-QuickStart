@@ -11,6 +11,8 @@
 - Add task progress streams.
 - Add typed task WebSocket events, progress payloads, and binary frames.
 - Add `subscribe` for one-call model execution and task polling.
+- Allow `subscribe` to select polling or WebSocket task tracking.
+- Normalize both transports through `WiroTaskUpdate`.
 - Add explicit `callbackUrl` support for completion webhooks.
 - Add `WiroTaskFailedException` for unsuccessful terminal tasks.
 - Add Flutter, image-generation, and video-generation examples.
