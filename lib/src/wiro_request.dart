@@ -65,13 +65,23 @@ final class WiroRetryPolicy {
   /// HTTP status codes considered transient.
   final Set<int> statusCodes;
 
-  /// Returns the delay before retry number [retryIndex].
-  Duration delayFor(int retryIndex) {
+  /// Returns a jittered delay before retry number [retryIndex].
+  ///
+  /// Supplying [random] makes the ±20% jitter deterministic in tests.
+  Duration delayFor(int retryIndex, {math.Random? random}) {
     final factor = math.pow(multiplier, retryIndex).toDouble();
     final milliseconds = initialDelay.inMilliseconds * factor;
+    final cappedMilliseconds = math.min(
+      milliseconds.round(),
+      maximumDelay.inMilliseconds,
+    );
+    if (cappedMilliseconds == 0) {
+      return Duration.zero;
+    }
+    final jitterFactor = 0.8 + (random ?? math.Random()).nextDouble() * 0.4;
     return Duration(
       milliseconds: math.min(
-        milliseconds.round(),
+        (cappedMilliseconds * jitterFactor).round(),
         maximumDelay.inMilliseconds,
       ),
     );

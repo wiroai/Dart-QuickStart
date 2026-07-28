@@ -1,4 +1,5 @@
 import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_identifier.dart';
 import 'package:wiro_client/src/model/wiro_json.dart';
 
 /// Lifecycle state of a Wiro task.
@@ -87,7 +88,7 @@ final class WiroTask {
     this.debugOutput,
     this.startTime,
     this.endTime,
-    this.elapsedSeconds,
+    this.elapsed,
     this.totalCost,
     this.modelDescription,
     this.modelOwner,
@@ -105,19 +106,20 @@ final class WiroTask {
         .toList(growable: false);
 
     return WiroTask(
-      id:
-          JsonReader.string(json['id']) ??
-          JsonReader.string(json['taskid']) ??
-          '',
-      taskToken: JsonReader.string(json['socketaccesstoken']) ?? '',
+      id: WiroTaskId.tryParse(
+        JsonReader.string(json['id']) ?? JsonReader.string(json['taskid']),
+      ),
+      taskToken: WiroTaskToken.tryParse(
+        JsonReader.string(json['socketaccesstoken']),
+      ),
       parameters: JsonReader.map(json['parameters']),
       status: WiroTaskStatus.fromApiValue(statusValue),
       statusValue: statusValue,
-      exitCode: JsonReader.string(json['pexit']),
+      exitCode: JsonReader.integerOrNull(json['pexit']),
       debugOutput: JsonReader.string(json['debugoutput']),
-      startTime: JsonReader.string(json['starttime']),
-      endTime: JsonReader.string(json['endtime']),
-      elapsedSeconds: JsonReader.decimal(json['elapsedseconds']),
+      startTime: JsonReader.dateTime(json['starttime']),
+      endTime: JsonReader.dateTime(json['endtime']),
+      elapsed: _durationFromSeconds(json['elapsedseconds']),
       totalCost: JsonReader.decimal(json['totalcost']),
       outputs: List.unmodifiable(outputs),
       modelDescription: JsonReader.string(json['modeldescription']),
@@ -127,11 +129,11 @@ final class WiroTask {
     );
   }
 
-  /// Server-side task identifier.
-  final String id;
+  /// Server-side task identifier, or `null` when Wiro omitted it.
+  final WiroTaskId? id;
 
-  /// Token used for polling and realtime subscriptions.
-  final String taskToken;
+  /// Token used for polling and subscriptions, or `null` when omitted.
+  final WiroTaskToken? taskToken;
 
   /// Dynamic parameters supplied to the model.
   final WiroJson parameters;
@@ -143,19 +145,19 @@ final class WiroTask {
   final String statusValue;
 
   /// Model process exit code. A value of `0` means success.
-  final String? exitCode;
+  final int? exitCode;
 
   /// Combined model diagnostic output.
   final String? debugOutput;
 
   /// Server-provided start timestamp.
-  final String? startTime;
+  final DateTime? startTime;
 
   /// Server-provided end timestamp.
-  final String? endTime;
+  final DateTime? endTime;
 
-  /// Total task duration in seconds.
-  final double? elapsedSeconds;
+  /// Total task duration.
+  final Duration? elapsed;
 
   /// Final billed cost.
   final double? totalCost;
@@ -180,8 +182,16 @@ final class WiroTask {
 
   /// A completed task succeeds only when its process exit code is `0`.
   bool get isSuccessful {
-    return status == WiroTaskStatus.completed && exitCode == '0';
+    return status == WiroTaskStatus.completed && exitCode == 0;
   }
+}
+
+Duration? _durationFromSeconds(Object? value) {
+  final seconds = JsonReader.decimal(value);
+  if (seconds == null || !seconds.isFinite) {
+    return null;
+  }
+  return Duration(milliseconds: (seconds * 1000).round());
 }
 
 /// A file or structured value produced by a Wiro task.
@@ -202,7 +212,7 @@ final class WiroTaskOutput {
     return WiroTaskOutput(
       name: JsonReader.string(json['name']),
       contentType: JsonReader.string(json['contenttype']) ?? '',
-      size: JsonReader.string(json['size']),
+      size: JsonReader.integerOrNull(json['size']),
       url: JsonReader.uri(json['url']),
       content: contentJson.isEmpty
           ? null
@@ -218,7 +228,7 @@ final class WiroTaskOutput {
   final String contentType;
 
   /// Server-provided output size.
-  final String? size;
+  final int? size;
 
   /// URL of a generated file.
   final Uri? url;
@@ -228,6 +238,23 @@ final class WiroTaskOutput {
 
   /// Original API payload for forward-compatible access.
   final WiroJson raw;
+
+  /// Whether this output contains image media.
+  bool get isImage => contentType.toLowerCase().startsWith('image/');
+
+  /// Whether this output contains video media.
+  bool get isVideo => contentType.toLowerCase().startsWith('video/');
+
+  /// Whether this output contains audio media.
+  bool get isAudio => contentType.toLowerCase().startsWith('audio/');
+
+  /// Whether this output contains text or structured raw text.
+  bool get isText {
+    final normalized = contentType.toLowerCase();
+    return normalized.startsWith('text/') ||
+        normalized == 'raw' ||
+        normalized == 'application/json';
+  }
 }
 
 /// Structured output returned by text and language models.

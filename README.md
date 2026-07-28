@@ -5,8 +5,8 @@
 The official type-safe Dart client for discovering and running AI models on
 [Wiro](https://wiro.ai).
 
-[![CI](https://github.com/wiroai/wiro-dart/actions/workflows/ci.yml/badge.svg)](https://github.com/wiroai/wiro-dart/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/wiroai/wiro-dart/branch/main/graph/badge.svg)](https://codecov.io/gh/wiroai/wiro-dart)
+[![CI](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml/badge.svg)](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/wiroai/Dart-QuickStart/branch/main/graph/badge.svg)](https://codecov.io/gh/wiroai/Dart-QuickStart)
 [![pub package](https://img.shields.io/pub/v/wiro_client.svg)](https://pub.dev/packages/wiro_client)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -15,9 +15,13 @@ The official type-safe Dart client for discovering and running AI models on
 ## Features
 
 - Search and explore available AI models
+- Run popular models with compile-time checked typed requests
 - Read typed model input schemas
+- Validate dynamic parameters against model schemas
 - Run image, video, audio, and other generative models
-- Submit and await a task with one `subscribe` call
+- Use typed model IDs, task tokens, and task IDs
+- Submit and await a sealed task result with one `subscribe` call
+- Send device files as model inputs with automatic uploads
 - Upload byte arrays or streams
 - Poll tasks or stream typed progress over WebSocket
 - Cancel queued tasks and stop running tasks
@@ -50,6 +54,17 @@ flutter pub add wiro_client
 
 ## Quick start
 
+Any model on Wiro runs through `Wiro.model`. Type `Wiro.` in your IDE
+to discover typed factories for popular models as well:
+
+<p align="center">
+  <img
+    src="doc/images/carbon-any-model.png"
+    alt="Run any Wiro model with Wiro.model"
+    width="720"
+  />
+</p>
+
 ```dart
 import 'package:wiro_client/wiro_client.dart';
 
@@ -57,108 +72,270 @@ Future<void> main() async {
   final client = WiroClient(apiKey: 'your-api-key');
 
   try {
-    final result = await client.searchModels(search: 'video');
-    for (final model in result.items) {
-      print(model.identifier);
-    }
+    final result = await client.subscribeRequest(
+      Wiro.model(
+        'black-forest-labs/flux-2-pro',
+        parameters: {
+          'prompt': 'A cinematic mountain lake',
+          'width': 1024,
+          'height': 1024,
+        },
+      ),
+    );
+    print(result.task.outputs.first.url);
   } finally {
     client.close();
   }
 }
 ```
 
-## Run a model
+## Which call do I need?
 
-Model parameters remain dynamic because every model has a different schema.
-Responses are fully typed.
+| I want to... | Call |
+| --- | --- |
+| Generate with a supported model | `client.subscribeRequest(Wiro.flux2Pro(...))` |
+| Run any other model | `client.subscribeRequest(Wiro.model('owner/model', parameters: {...}))` |
+| Find a model | `client.searchModels(search: '...')` or `client.explore()` |
+| See what parameters a model takes | `client.getModelSchema(...)`, then `schema.validate(params)` |
+| Watch progress | `onUpdate:` callback, or `client.subscribeStream(...)` |
+| Send a device file to a model | `WiroFileInput.bytes(bytes, fileName: '...')` — uploaded automatically |
+| Cancel or stop a task | `client.cancelTask(...)` / `client.killTask(...)` |
+| Keep API keys off the device | `WiroClient.proxied(proxyUri: ...)` |
+| Handle failure | `switch` on `WiroTaskSuccess` / `WiroTaskFailure(:reason)` |
+
+## Run a model with a typed request
+
+Popular models ship with typed request classes, so required parameters,
+value ranges, and select options are checked at compile time:
+
+<p align="center">
+  <img
+    src="doc/images/carbon-typed-request.png"
+    alt="Compile-time checked typed request with Wiro.flux2Pro"
+    width="720"
+  />
+</p>
 
 ```dart
-final task = await client.subscribe(
-  'black-forest-labs/flux-2-pro',
-  parameters: {
-    'prompt': 'A cinematic mountain lake at sunrise',
-    'width': 1024,
-    'height': 1024,
-  },
+final result = await client.subscribeRequest(
+  Wiro.flux2Pro(
+    prompt: 'A cinematic mountain lake at sunrise',
+    width: 1024,
+    height: 1024,
+    outputFormat: WiroFlux2ProOutputFormat.png,
+  ),
+);
+
+switch (result) {
+  case WiroTaskSuccess(:final task):
+    print(task.outputs.first.url);
+  case WiroTaskFailure(:final reason):
+    print('Failed: ${reason.name}');
+}
+```
+
+Type `Wiro.` in your IDE to list every model with a typed request;
+each factory (such as `Wiro.flux2Pro`) returns the matching request
+class. Typed requests generated from the live Wiro schemas are included for:
+
+| Category | Models |
+| --- | --- |
+| Image | FLUX.2 Pro, GPT Image 2, Nano Banana Pro, Seedream v4, Grok Imagine Image, Google Upscaler |
+| Video | Runway Gen-4.5, Seedance 2.0, Kling V3, Veo 3.1, Sora 2 Pro, Hailuo 2.3 Fast, Grok Imagine Video |
+| Music | Lyria 3 |
+
+Any other model runs through `Wiro.model` as shown below. `runRequest`
+is the non-tracking equivalent of `subscribeRequest`.
+
+Typed requests are generated from the live Wiro model schemas with an
+internal tool, so coverage grows with SDK releases. Missing a model?
+[Open an issue](https://github.com/wiroai/Dart-QuickStart/issues) to request a
+typed binding, or implement `WiroModelRequest` yourself in the meantime.
+
+## Run any model with `Wiro.model`
+
+Models without a typed factory run through `Wiro.model` with a dynamic
+parameter map, so every model works even before the SDK ships a binding
+for it. Responses are fully typed.
+
+```dart
+final result = await client.subscribeRequest(
+  Wiro.model(
+    'black-forest-labs/flux-2-pro',
+    parameters: {
+      'prompt': 'A cinematic mountain lake at sunrise',
+      'width': 1024,
+      'height': 1024,
+    },
+  ),
   trackingMode: WiroTaskTrackingMode.webSocket,
   onUpdate: (update) {
-    print('${update.statusValue}: ${update.progress?.percentage}');
+    switch (update) {
+      case WiroTaskEventUpdate(
+        event: WiroSocketMessageEvent(
+          payload: WiroProgressPayload(:final progress),
+        ),
+      ):
+        print('${update.statusValue}: ${progress.percentage}');
+      case WiroTaskSnapshotUpdate() || WiroTaskBinaryUpdate():
+        print(update.statusValue);
+    }
   },
 );
 
-for (final output in task.outputs) {
+for (final output in result.task.outputs) {
   print(output.url);
 }
 ```
 
-`subscribe` throws `WiroTaskFailedException` when the terminal task did not
-succeed. `trackingMode` can be `polling` or `webSocket`; polling is the
-backward-compatible default. Both modes emit `WiroTaskUpdate`.
+`subscribe` returns `WiroTaskSuccess` or `WiroTaskFailure`, both carrying the
+terminal task. `trackingMode` can be `polling` or `webSocket`; polling is the
+default. Both modes emit sealed `WiroTaskUpdate` variants. Failures expose a
+typed `reason`, and `result.task.elapsed` reports fractional task duration as
+a `Duration`.
 
 Use the lower-level API when submission and tracking must be managed separately:
 
 ```dart
 final run = await client.runModel(
-  'openai/sora-2',
+  WiroModelId('openai', 'sora-2'),
   parameters: {'prompt': 'A cinematic mountain lake'},
   callbackUrl: Uri.parse('https://example.com/wiro-webhook'),
 );
-final task = await client.waitForTask(run.taskToken);
+final taskToken = run.taskToken;
+if (taskToken == null) {
+  throw StateError('Wiro did not return a task token.');
+}
+final task = await client.waitForTask(taskToken);
 ```
+
+Server-derived model IDs, task IDs, task tokens, and socket event IDs are
+nullable when Wiro omits or returns invalid identifier fields. Identifiers
+created explicitly with `WiroModelId`, `WiroTaskId`, or `WiroTaskToken` remain
+strictly validated.
 
 Get the accepted parameters before running a model:
 
 ```dart
-final schema = await client.getModelSchema('openai/sora-2');
+final schema = await client.getModelSchema(
+  WiroModelId('openai', 'sora-2'),
+);
 for (final parameter in schema.parameters) {
-  print('${parameter.id}: ${parameter.type}');
+  print('${parameter.id}: ${parameter.runtimeType}');
 }
+schema.validate({'prompt': 'A cinematic mountain lake'});
 ```
+
+Select, number, and text parameter variants expose typed `defaultValue`
+fields. Unknown variants preserve dynamic defaults, while file parameter
+defaults remain available through `parameter.raw['default']`.
 
 ## File inputs and uploads
 
-Model parameters accept remote URLs. `fileinput` values can use the parameter
-itself or its `Url` companion. `combinefileinput` values accept a list of URLs:
+File parameters take `WiroFileInput` values. Wrap an already-hosted file
+with `WiroFileInput.url`, or pass raw device bytes (a gallery pick, a
+camera shot) with `WiroFileInput.bytes` — the client uploads them
+automatically and swaps in the URL before the model runs:
+
+<p align="center">
+  <img
+    src="doc/images/carbon-file-input.png"
+    alt="Device file upload with WiroFileInput.bytes"
+    width="720"
+  />
+</p>
+
+```dart
+final result = await client.subscribeRequest(
+  Wiro.upscaler(
+    inputImage: WiroFileInput.bytes(
+      await image.readAsBytes(),
+      fileName: 'photo.jpg',
+    ),
+    upscaleFactor: 4,
+  ),
+);
+
+print(result.task.outputs.first.url);
+```
+
+The same works inside dynamic parameter maps:
 
 ```dart
 final run = await client.runModel(
-  'openai/sora-2',
+  WiroModelId('openai', 'sora-2'),
   parameters: {
     'prompt': 'Animate this image',
-    'inputImage': ['https://example.com/input.jpg'],
+    'inputImage': [
+      WiroFileInput.url(Uri.parse('https://example.com/input.jpg')),
+    ],
     'seconds': '4',
   },
 );
 ```
 
-Upload local bytes first when a public URL is not available:
-
-```dart
-final upload = await client.uploadFile(
-  bytes,
-  fileName: 'input.jpg',
-);
-final url = upload.files.single.url;
-```
-
-Use `uploadStream` with an exact `contentLength` for large files. Streaming
-avoids SDK-side buffering on supported runtimes.
+To manage uploads yourself, call `client.uploadFile(bytes, fileName: ...)`
+and pass the returned URL, or use `uploadStream` with an exact
+`contentLength` for large files. Streaming avoids SDK-side buffering on
+supported runtimes.
 
 ## Observe task progress
+
+Pass `onUpdate` or use WebSocket tracking to watch a run live:
+
+<p align="center">
+  <img
+    src="doc/images/carbon-progress.png"
+    alt="WebSocket task progress with onUpdate"
+    width="720"
+  />
+</p>
+
+```dart
+final result = await client.subscribeRequest(
+  Wiro.runwayGen45(
+    promptText: 'A drone shot over misty mountains',
+    ratio: WiroRunwayGen45Ratio.landscape16x9,
+  ),
+  trackingMode: WiroTaskTrackingMode.webSocket,
+  onUpdate: (update) {
+    print(update.statusValue);
+  },
+);
+```
+
+Use `subscribeStream` when an `await for` loop is more convenient than a
+callback:
+
+```dart
+await for (final update in client.subscribeStream(
+  WiroModelId('black-forest-labs', 'flux-2-pro'),
+  parameters: {'prompt': 'A cinematic mountain lake'},
+)) {
+  print(update.statusValue);
+}
+```
 
 Use WebSocket for realtime lifecycle, progress, LLM, and binary events:
 
 ```dart
-await for (final event in client.watchTaskSocket(run.taskToken)) {
+await for (final event in client.watchTaskSocket(taskToken)) {
   switch (event) {
     case WiroSocketMessageEvent(
       :final statusValue,
-      :final progress,
-      :final outputs,
+      :final payload,
     ):
-      print('$statusValue: ${progress?.percentage}');
-      for (final output in outputs) {
-        print(output.url);
+      switch (payload) {
+        case WiroLogPayload(:final message):
+          print('$statusValue: $message');
+        case WiroProgressPayload(:final progress):
+          print('$statusValue: ${progress.percentage}');
+        case WiroOutputsPayload(:final outputs):
+          for (final output in outputs) {
+            print(output.url);
+          }
+        case WiroUnknownPayload():
+          print('$statusValue: unknown payload');
       }
     case WiroSocketBinaryEvent(:final bytes):
       print('Received ${bytes.length} realtime bytes');
@@ -174,7 +351,7 @@ Polling remains available as a fallback:
 
 ```dart
 await for (final task in client.watchTask(
-  run.taskToken,
+  taskToken,
   timeout: const Duration(minutes: 10),
 )) {
   print(task.statusValue);
@@ -199,6 +376,8 @@ await request;
 ```
 
 Cancelled requests throw `WiroRequestCancelledException`.
+Cancelling a `subscribeStream` subscription also stops its active polling or
+WebSocket tracking without emitting a cancellation error.
 
 ## Retries, timeouts, and logging
 
@@ -222,6 +401,8 @@ task lookup. Model runs and file uploads are not retried because they can
 create duplicate billable work. Rate-limit retries respect `Retry-After`.
 
 Logs never contain API keys, secrets, headers, or request bodies.
+Malformed nested JSON ignored during response parsing is reported as a debug
+log event instead of through global diagnostics state.
 
 ## Error handling
 
@@ -235,14 +416,14 @@ try {
   // Invalid or expired credentials.
 } on WiroRateLimitException catch (error) {
   print('Retry after: ${error.retryAfter}');
+} on WiroSchemaValidationException catch (error) {
+  print(error.issues);
 } on WiroValidationException catch (error) {
   print(error.message);
 } on WiroTimeoutException {
   // Request or task polling timed out.
 } on WiroNetworkException {
   // The API could not be reached.
-} on WiroTaskFailedException catch (error) {
-  print(error.task.debugOutput);
 } on WiroUnknownApiException catch (error) {
   print('${error.statusCode}: ${error.message}');
 }
@@ -272,8 +453,21 @@ The configured credentials must match the authentication type selected for
 the Wiro project.
 
 Never embed long-lived Wiro credentials in a production mobile application.
-Call Wiro through your backend or use a short-lived client token flow when
-one is available.
+Use a proxied client so credentials stay on your backend:
+
+```dart
+final client = WiroClient.proxied(
+  proxyUri: Uri.parse('https://your-backend.example.com/wiro'),
+  headers: {'Authorization': 'Bearer $sessionToken'},
+);
+```
+
+The device sends requests to your proxy without any Wiro headers. The proxy
+must accept the same REST paths as the Wiro API, attach `x-api-key` (and
+signature headers when required), and forward the request to
+`https://api.wiro.ai/v1`. Task WebSocket streams still connect directly to
+Wiro because they authenticate with per-task tokens instead of API
+credentials.
 
 ## Examples
 

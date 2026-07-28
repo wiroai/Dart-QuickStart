@@ -6,8 +6,8 @@ description: >-
 version: 0.1.0
 homepage: https://wiro.ai
 documentation: https://wiro.ai/docs
-repository: https://github.com/wiroai/wiro-dart
-issue_tracker: https://github.com/wiroai/wiro-dart/issues
+repository: https://github.com/wiroai/Dart-QuickStart
+issue_tracker: https://github.com/wiroai/Dart-QuickStart/issues
 topics:
   - ai
   - generative-ai
@@ -25,4 +25,4 @@ dependencies:
 dev_dependencies:
   coverage: ^1.15.1
   test: ^1.25.6
-  very_good_analysis: ^9.0.0
+  very_good_analysis: ^10.3.0

@@ -13,8 +13,8 @@ Puro is not required.
 ## Setup
 
 ```bash
-git clone https://github.com/wiroai/wiro-dart.git
-cd wiro-dart
+git clone https://github.com/wiroai/Dart-QuickStart.git
+cd Dart-QuickStart
 flutter pub get
 ```
 
@@ -74,7 +74,7 @@ tag. Trusted publishing sends the package to pub.dev after quality checks.
 Before the first release, maintainers must configure:
 
 - The `pub.dev` GitHub environment with required reviewers
-- A pub.dev trusted publisher for `wiroai/wiro-dart`
+- A pub.dev trusted publisher for `wiroai/Dart-QuickStart`
 - Codecov OIDC access for the repository
 - Read-only `WIRO_API_KEY` and optional `WIRO_API_SECRET` repository secrets
 - Branch protection requiring the CI workflow
@@ -84,4 +84,5 @@ For example, package version `0.1.0` must be released with tag `v0.1.0`.
 
 Pub.dev requires the first package version to be published manually. After
 that release, enable GitHub Actions publishing with repository
-`wiroai/wiro-dart`, tag pattern `v{{version}}`, and environment `pub.dev`.
+`wiroai/Dart-QuickStart`, tag pattern `v{{version}}`, and environment
+`pub.dev`.

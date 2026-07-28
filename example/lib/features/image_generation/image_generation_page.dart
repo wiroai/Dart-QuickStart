@@ -7,7 +7,8 @@ import 'package:wiro_client_example/extension/media_query_extension.dart';
 import 'package:wiro_client_example/extension/theme_extension.dart';
 import 'package:wiro_client_example/features/image_generation/image_generation_state.dart';
 
-/// Demonstrates text-to-image generation with [WiroClient.subscribe].
+/// Demonstrates text-to-image generation with
+/// [WiroClient.subscribeRequest] and [Wiro.flux2Pro].
 final class ImageGenerationPage extends StatefulWidget {
   /// Creates the image-generation example.
   const ImageGenerationPage({
@@ -66,66 +67,71 @@ final class _ImageGenerationPageState extends State<ImageGenerationPage> {
 
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) {
-      _state.value = const ImageGenerationFailure(
-        'Enter a prompt before generating an image.',
+      _setState(
+        const ImageGenerationFailure(
+          'Enter a prompt before generating an image.',
+        ),
       );
       return;
     }
 
     final client = _client;
     if (client == null) {
-      _state.value = const ImageGenerationFailure(
-        'Run with --dart-define=WIRO_API_KEY=your-key.',
+      _setState(
+        const ImageGenerationFailure(
+          'Run with --dart-define=WIRO_API_KEY=your-key.',
+        ),
       );
       return;
     }
 
     final cancellationToken = WiroCancellationToken();
     _activeCancellationToken = cancellationToken;
-    _state.value = const ImageGenerationLoading('Submitting request');
+    _setState(const ImageGenerationLoading('Submitting request'));
 
     try {
-      final task = await client.subscribe(
-        'black-forest-labs/flux-2-pro',
-        parameters: {
-          'prompt': prompt,
-          'width': 1024,
-          'height': 1024,
-          'outputFormat': 'png',
-        },
+      final result = await client.subscribeRequest(
+        Wiro.flux2Pro(
+          prompt: prompt,
+          width: 1024,
+          height: 1024,
+          outputFormat: WiroFlux2ProOutputFormat.png,
+        ),
         cancellationToken: cancellationToken,
         onUpdate: (update) {
-          if (mounted) {
-            _state.value = ImageGenerationLoading(update.status.name);
-          }
+          _setState(ImageGenerationLoading(update.status.name));
         },
       );
-      final imageUrl = _firstOutputUrl(task);
-      if (imageUrl == null) {
-        throw StateError('The task completed without an image URL.');
-      }
-      if (mounted) {
-        _state.value = ImageGenerationSuccess(imageUrl);
-      }
-    } on WiroTaskFailedException catch (error) {
-      if (mounted) {
-        _state.value = ImageGenerationFailure(
-          error.task.debugOutput ?? error.message,
-        );
-      }
+
+      _setState(
+        switch (result) {
+          WiroTaskFailure(:final reason, :final task) => ImageGenerationFailure(
+            task.debugOutput ?? 'Image generation failed (${reason.name}).',
+          ),
+          WiroTaskSuccess(:final task) => switch (_firstOutputUrl(task)) {
+            final Uri imageUrl => ImageGenerationSuccess(imageUrl),
+            null => const ImageGenerationFailure(
+              'The task completed without an image URL.',
+            ),
+          },
+        },
+      );
     } on WiroException catch (error) {
-      if (mounted) {
-        _state.value = ImageGenerationFailure(error.message);
-      }
+      _setState(ImageGenerationFailure(error.message));
     } on Object catch (error) {
-      if (mounted) {
-        _state.value = ImageGenerationFailure(error.toString());
-      }
+      _setState(ImageGenerationFailure(error.toString()));
     } finally {
       if (identical(_activeCancellationToken, cancellationToken)) {
         _activeCancellationToken = null;
       }
     }
+  }
+
+  void _setState(ImageGenerationState state) {
+    if (!mounted) {
+      return;
+    }
+    _state.value = state;
   }
 
   Uri? _firstOutputUrl(WiroTask task) {
