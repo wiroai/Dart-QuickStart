@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_identifier.dart';
 import 'package:wiro_client/src/model/wiro_json.dart';
 import 'package:wiro_client/src/model/wiro_task.dart';
 
@@ -15,27 +16,16 @@ final class WiroSocketMessageEvent extends WiroSocketEvent {
   factory WiroSocketMessageEvent.fromJson(WiroJson json) {
     final statusValue = JsonReader.string(json['type']) ?? '';
     final message = json['message'];
-    final messageJson = JsonReader.map(message);
-    final outputValues = statusValue == 'task_postprocess_end'
-        ? JsonReader.list(message)
-        : const <Object?>[];
 
     return WiroSocketMessageEvent._(
-      id: JsonReader.string(json['id']) ?? '',
-      taskToken: JsonReader.string(json['tasktoken']) ?? '',
+      id: WiroTaskId.tryParse(JsonReader.string(json['id'])),
+      taskToken: WiroTaskToken.tryParse(
+        JsonReader.string(json['tasktoken']),
+      ),
       status: WiroTaskStatus.fromApiValue(statusValue),
       statusValue: statusValue,
       result: JsonReader.boolean(json['result']),
-      message: message,
-      progress: messageJson.isEmpty
-          ? null
-          : WiroTaskProgress.fromJson(messageJson),
-      outputs: List.unmodifiable(
-        outputValues
-            .map(JsonReader.map)
-            .where((item) => item.isNotEmpty)
-            .map(WiroTaskOutput.fromJson),
-      ),
+      payload: WiroSocketPayload.fromValue(statusValue, message),
       raw: Map.unmodifiable(json),
     );
   }
@@ -46,17 +36,15 @@ final class WiroSocketMessageEvent extends WiroSocketEvent {
     required this.status,
     required this.statusValue,
     required this.result,
-    required this.message,
-    required this.progress,
-    required this.outputs,
+    required this.payload,
     required this.raw,
   });
 
-  /// Server-side task identifier.
-  final String id;
+  /// Server-side task identifier, or `null` when omitted or invalid.
+  final WiroTaskId? id;
 
-  /// Token associated with this task stream.
-  final String taskToken;
+  /// Token associated with this task stream, or `null` when omitted.
+  final WiroTaskToken? taskToken;
 
   /// Parsed lifecycle status.
   final WiroTaskStatus status;
@@ -67,23 +55,145 @@ final class WiroSocketMessageEvent extends WiroSocketEvent {
   /// Whether Wiro marked this event as successful.
   final bool result;
 
-  /// Dynamic event payload.
-  final Object? message;
-
-  /// Parsed progress or structured text payload, when available.
-  final WiroTaskProgress? progress;
-
-  /// Final task outputs supplied by `task_postprocess_end`.
-  final List<WiroTaskOutput> outputs;
+  /// Typed event message payload.
+  final WiroSocketPayload payload;
 
   /// Original event payload for forward-compatible access.
   final WiroJson raw;
 
-  /// Plain message text, when [message] is a string.
-  String? get messageText => JsonReader.string(message);
+  /// Plain message text, when [payload] is a [WiroLogPayload].
+  String? get messageText {
+    return switch (payload) {
+      WiroLogPayload(:final message) => message,
+      _ => null,
+    };
+  }
+
+  /// Parsed progress, when [payload] is a [WiroProgressPayload].
+  WiroTaskProgress? get progress {
+    return switch (payload) {
+      WiroProgressPayload(:final progress) => progress,
+      _ => null,
+    };
+  }
+
+  /// Final outputs, when [payload] is a [WiroOutputsPayload].
+  List<WiroTaskOutput> get outputs {
+    return switch (payload) {
+      WiroOutputsPayload(:final outputs) => outputs,
+      _ => const [],
+    };
+  }
 
   /// Whether this event ends a standard task stream.
   bool get isTerminal => status.isTerminal;
+}
+
+/// Base type for typed Wiro WebSocket message payloads.
+sealed class WiroSocketPayload {
+  const WiroSocketPayload();
+
+  /// Decodes [value] according to the surrounding event [statusValue].
+  factory WiroSocketPayload.fromValue(
+    String statusValue,
+    Object? value,
+  ) {
+    if (statusValue == WiroTaskStatus.completed.apiValue) {
+      final rawOutputs = JsonReader.list(value);
+      final outputs = rawOutputs
+          .map(JsonReader.map)
+          .where((item) => item.isNotEmpty)
+          .map(WiroTaskOutput.fromJson)
+          .toList(growable: false);
+      return WiroOutputsPayload(
+        List.unmodifiable(outputs),
+        raw: List.unmodifiable(rawOutputs),
+      );
+    }
+    if (value case final String message) {
+      final trimmed = message.trimLeft();
+      if (trimmed.startsWith('{')) {
+        final messageJson = JsonReader.map(message);
+        final hasProgressKey = messageJson.keys.any(_progressKeys.contains);
+        if (messageJson.isNotEmpty && hasProgressKey) {
+          return WiroProgressPayload(
+            WiroTaskProgress.fromJson(messageJson),
+          );
+        }
+      }
+      return WiroLogPayload(message);
+    }
+
+    final messageJson = JsonReader.map(value);
+    if (messageJson.keys.any(_progressKeys.contains)) {
+      return WiroProgressPayload(WiroTaskProgress.fromJson(messageJson));
+    }
+    return WiroUnknownPayload(value);
+  }
+
+  static const _progressKeys = {
+    'type',
+    'task',
+    'percentage',
+    'stepCurrent',
+    'stepTotal',
+    'speed',
+    'speedType',
+    'elapsedTime',
+    'remainingTime',
+    'raw',
+    'thinking',
+    'answer',
+    'isThinking',
+  };
+
+  /// Original message value for forward-compatible access.
+  Object? get raw;
+}
+
+/// A plain text message received from a task.
+final class WiroLogPayload extends WiroSocketPayload {
+  /// Creates a log payload from [message].
+  const WiroLogPayload(this.message);
+
+  /// Plain text message.
+  final String message;
+
+  @override
+  Object get raw => message;
+}
+
+/// Structured task progress received from a task.
+final class WiroProgressPayload extends WiroSocketPayload {
+  /// Creates a progress payload from [progress].
+  const WiroProgressPayload(this.progress);
+
+  /// Parsed task progress.
+  final WiroTaskProgress progress;
+
+  @override
+  Object get raw => progress.raw;
+}
+
+/// Final output descriptors received from a task.
+final class WiroOutputsPayload extends WiroSocketPayload {
+  /// Creates an outputs payload.
+  const WiroOutputsPayload(this.outputs, {required this.raw});
+
+  /// Parsed task outputs.
+  final List<WiroTaskOutput> outputs;
+
+  @override
+  final List<Object?> raw;
+}
+
+/// A message payload introduced after this SDK version.
+final class WiroUnknownPayload extends WiroSocketPayload {
+  /// Creates an unknown payload while preserving [raw].
+  const WiroUnknownPayload(this.raw);
+
+  @override
+  final Object? raw;
 }
 
 /// A binary frame received from a realtime Wiro task.

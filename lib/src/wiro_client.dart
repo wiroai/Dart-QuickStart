@@ -5,8 +5,11 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_file_input.dart';
+import 'package:wiro_client/src/model/wiro_identifier.dart';
 import 'package:wiro_client/src/model/wiro_json.dart';
 import 'package:wiro_client/src/model/wiro_model.dart';
+import 'package:wiro_client/src/model/wiro_model_request.dart';
 import 'package:wiro_client/src/model/wiro_result.dart';
 import 'package:wiro_client/src/model/wiro_socket.dart';
 import 'package:wiro_client/src/model/wiro_task.dart';
@@ -21,10 +24,180 @@ enum WiroAuthType {
 
   /// Signs every request with the API key and secret.
   signature,
+
+  /// Sends no credentials; a backend proxy attaches them server-side.
+  proxy,
+}
+
+/// Mock-friendly interface for the public Wiro client API.
+abstract interface class WiroClientBase {
+  /// Authentication method used by this client.
+  WiroAuthType get authType;
+
+  /// Delay between task status requests.
+  Duration get pollInterval;
+
+  /// Maximum duration of an individual HTTP request.
+  Duration get requestTimeout;
+
+  /// Retry behavior for safe read-like operations.
+  WiroRetryPolicy get retryPolicy;
+
+  /// Optional structured diagnostic event receiver.
+  WiroLogger? get logger;
+
+  /// Searches the models available on Wiro.
+  Future<WiroPaginatedResult<WiroModel>> searchModels({
+    String search = '',
+    List<String> categories = const [],
+    int start = 0,
+    int limit = 20,
+    WiroModelSort sort = WiroModelSort.relevance,
+    String? owner,
+    WiroSortOrder? order,
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Returns curated model categories.
+  Future<List<WiroExploreCategory>> explore({
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Returns the input schema for [model].
+  Future<WiroModelSchema> getModelSchema(
+    WiroModelId model, {
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Starts [model] with the supplied dynamic [parameters].
+  ///
+  /// Any [WiroFileInput.bytes] value in [parameters] is uploaded
+  /// automatically and replaced with its URL before the run starts.
+  Future<WiroRunResult> runModel(
+    WiroModelId model, {
+    WiroJson parameters = const {},
+    Uri? callbackUrl,
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Starts a typed model [request] without tracking it.
+  ///
+  /// Build the [request] with a `Wiro` factory to get compile-time
+  /// checked parameters; use [runModel] for models without a typed request.
+  Future<WiroRunResult> runRequest(
+    WiroModelRequest request, {
+    Uri? callbackUrl,
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Starts [model], tracks it, and returns a typed terminal result.
+  Future<WiroTaskResult> subscribe(
+    WiroModelId model, {
+    WiroJson parameters = const {},
+    Uri? callbackUrl,
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+    WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
+    WiroTaskUpdateCallback? onUpdate,
+  });
+
+  /// Starts a typed model [request], tracks it, and returns its result.
+  ///
+  /// Build the [request] with a `Wiro` factory to get compile-time
+  /// checked parameters; use [subscribe] for models without a typed request.
+  ///
+  /// ```dart
+  /// final result = await client.subscribeRequest(
+  ///   Wiro.flux2Pro(prompt: 'A cinematic mountain lake'),
+  /// );
+  /// ```
+  Future<WiroTaskResult> subscribeRequest(
+    WiroModelRequest request, {
+    Uri? callbackUrl,
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+    WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
+    WiroTaskUpdateCallback? onUpdate,
+  });
+
+  /// Starts [model] and streams typed task updates.
+  ///
+  /// Cancelling the returned subscription stops active task tracking.
+  Stream<WiroTaskUpdate> subscribeStream(
+    WiroModelId model, {
+    WiroJson parameters = const {},
+    Uri? callbackUrl,
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+    WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
+  });
+
+  /// Returns task details using [token].
+  Future<WiroTask> getTask(
+    WiroTaskToken token, {
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Returns task details using the server-side task [id].
+  Future<WiroTask> getTaskById(
+    WiroTaskId id, {
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Requests cancellation of a queued task.
+  Future<bool> cancelTask(
+    WiroTaskToken taskToken, {
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Stops a running task.
+  Future<bool> killTask(
+    WiroTaskToken taskToken, {
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Uploads [bytes] to Wiro.
+  Future<WiroUploadResult> uploadFile(
+    List<int> bytes, {
+    required String fileName,
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Uploads a byte [stream] to Wiro without buffering it in the SDK.
+  Future<WiroUploadResult> uploadStream(
+    Stream<List<int>> stream, {
+    required int contentLength,
+    required String fileName,
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Emits polled task snapshots until the task reaches a terminal status.
+  Stream<WiroTask> watchTask(
+    WiroTaskToken taskToken, {
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Streams realtime task events from Wiro over WebSocket.
+  Stream<WiroSocketEvent> watchTaskSocket(
+    WiroTaskToken taskToken, {
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Polls until a task reaches a terminal status.
+  Future<WiroTask> waitForTask(
+    WiroTaskToken taskToken, {
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+  });
+
+  /// Releases resources owned by this client.
+  void close();
 }
 
 /// Client for the Wiro model and task APIs.
-final class WiroClient {
+final class WiroClient implements WiroClientBase {
   /// Creates a Wiro API client.
   ///
   /// The supplied credentials must match the authentication type configured
@@ -40,11 +213,10 @@ final class WiroClient {
     this.retryPolicy = const WiroRetryPolicy(),
     this.logger,
   }) : _apiKey = apiKey,
-       // The public parameter intentionally omits the private field prefix.
-       // ignore: prefer_initializing_formals
        _apiSecret = apiSecret,
+       _extraHeaders = const {},
        _baseUrl = _normalizeBaseUrl(
-         _validateBaseUri(baseUri ?? defaultBaseUri),
+         _validateHttpOrigin(baseUri ?? defaultBaseUri, 'baseUri'),
        ),
        _socketUri = _validateSocketUri(socketUri ?? defaultSocketUri),
        _httpClient = httpClient ?? http.Client(),
@@ -55,20 +227,38 @@ final class WiroClient {
     if (apiSecret != null && apiSecret.trim().isEmpty) {
       throw ArgumentError.value(apiSecret, 'apiSecret', 'Cannot be empty');
     }
-    if (requestTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        requestTimeout,
-        'requestTimeout',
-        'Must be greater than zero',
-      );
-    }
-    if (pollInterval < Duration.zero) {
-      throw ArgumentError.value(
-        pollInterval,
-        'pollInterval',
-        'Cannot be negative',
-      );
-    }
+    _validateTimings(requestTimeout, pollInterval);
+  }
+
+  /// Creates a client that routes requests through a backend proxy.
+  ///
+  /// The device never holds Wiro credentials. The proxy at [proxyUri] must
+  /// accept the same REST paths as the Wiro API, attach the `x-api-key`
+  /// header (and signature headers when required), and forward requests to
+  /// Wiro. Use [headers] to authenticate the app's own users against the
+  /// proxy, for example with an `Authorization` session header.
+  ///
+  /// Task WebSocket streams connect directly to [socketUri] because they
+  /// authenticate with task tokens instead of API credentials.
+  WiroClient.proxied({
+    required Uri proxyUri,
+    Map<String, String> headers = const {},
+    Uri? socketUri,
+    http.Client? httpClient,
+    this.pollInterval = const Duration(seconds: 3),
+    this.requestTimeout = const Duration(seconds: 30),
+    this.retryPolicy = const WiroRetryPolicy(),
+    this.logger,
+  }) : _apiKey = null,
+       _apiSecret = null,
+       _extraHeaders = Map.unmodifiable(headers),
+       _baseUrl = _normalizeBaseUrl(
+         _validateHttpOrigin(proxyUri, 'proxyUri'),
+       ),
+       _socketUri = _validateSocketUri(socketUri ?? defaultSocketUri),
+       _httpClient = httpClient ?? http.Client(),
+       _ownsHttpClient = httpClient == null {
+    _validateTimings(requestTimeout, pollInterval);
   }
 
   /// Default Wiro REST API endpoint.
@@ -77,41 +267,51 @@ final class WiroClient {
   /// Default Wiro task WebSocket endpoint.
   static final Uri defaultSocketUri = Uri.parse('wss://socket.wiro.ai/v1');
 
-  final String _apiKey;
+  final String? _apiKey;
   final String? _apiSecret;
+  final Map<String, String> _extraHeaders;
   final String _baseUrl;
   final Uri _socketUri;
   final http.Client _httpClient;
   final bool _ownsHttpClient;
 
   /// Delay between task status requests.
+  @override
   final Duration pollInterval;
 
   /// Maximum duration of an individual HTTP request.
+  @override
   final Duration requestTimeout;
 
   /// Retry behavior for safe read-like HTTP operations.
   ///
   /// Model runs and file uploads are never retried automatically.
+  @override
   final WiroRetryPolicy retryPolicy;
 
   /// Optional structured diagnostic event receiver.
+  @override
   final WiroLogger? logger;
 
   /// Authentication method inferred from the configured credentials.
+  @override
   WiroAuthType get authType {
+    if (_apiKey == null) {
+      return WiroAuthType.proxy;
+    }
     return _apiSecret == null ? WiroAuthType.apiKey : WiroAuthType.signature;
   }
 
   /// Searches the models available on Wiro.
+  @override
   Future<WiroPaginatedResult<WiroModel>> searchModels({
     String search = '',
     List<String> categories = const [],
     int start = 0,
     int limit = 20,
-    String sort = 'relevance',
+    WiroModelSort sort = WiroModelSort.relevance,
     String? owner,
-    String? order,
+    WiroSortOrder? order,
     WiroCancellationToken? cancellationToken,
   }) {
     if (start < 0) {
@@ -128,11 +328,11 @@ final class WiroClient {
         'limit': '$limit',
         'search': search,
         'categories': categories,
-        'sort': sort,
+        'sort': sort.apiValue,
         'hideworkflows': true,
         'summary': true,
         'slugowner': ?owner,
-        'order': ?order,
+        'order': ?order?.apiValue,
       },
       (json) {
         return WiroPaginatedResult.fromJson(
@@ -146,6 +346,7 @@ final class WiroClient {
   }
 
   /// Returns curated model categories.
+  @override
   Future<List<WiroExploreCategory>> explore({
     WiroCancellationToken? cancellationToken,
   }) {
@@ -159,14 +360,14 @@ final class WiroClient {
   }
 
   /// Returns the input schema for [model].
+  @override
   Future<WiroModelSchema> getModelSchema(
-    String model, {
+    WiroModelId model, {
     WiroCancellationToken? cancellationToken,
   }) {
-    final (:owner, :project) = _parseModel(model);
     return _post(
       '/Tool/Detail',
-      {'slugowner': owner, 'slugproject': project},
+      {'slugowner': model.owner, 'slugproject': model.project},
       _modelSchemaFromResponse,
       cancellationToken: cancellationToken,
     );
@@ -174,47 +375,230 @@ final class WiroClient {
 
   /// Starts [model] with the supplied dynamic [parameters].
   ///
+  /// Any [WiroFileInput.bytes] value in [parameters] is uploaded
+  /// automatically and replaced with its URL before the run starts.
+  ///
   /// When [callbackUrl] is supplied, Wiro sends the completed task to that
   /// webhook URL.
   ///
   /// This billable operation is not retried automatically.
+  @override
   Future<WiroRunResult> runModel(
-    String model, {
+    WiroModelId model, {
     WiroJson parameters = const {},
     Uri? callbackUrl,
     WiroCancellationToken? cancellationToken,
-  }) {
-    final (:owner, :project) = _parseModel(model);
+  }) async {
     final callback = callbackUrl == null
         ? null
         : _validateCallbackUrl(callbackUrl);
+    final resolved = await _resolveFileInputs(parameters, cancellationToken);
     return _post(
-      '/Run/${Uri.encodeComponent(owner)}/${Uri.encodeComponent(project)}',
-      {
-        ...parameters,
-        if (callback != null) 'callbackUrl': callback.toString(),
-      },
+      '/Run/${Uri.encodeComponent(model.owner)}/'
+      '${Uri.encodeComponent(model.project)}',
+      {...resolved, if (callback != null) 'callbackUrl': callback.toString()},
       WiroRunResult.fromJson,
       cancellationToken: cancellationToken,
       retryable: false,
     );
   }
 
-  /// Starts [model], tracks it to completion, and returns its terminal task.
+  /// Uploads device-local file inputs and replaces every [WiroFileInput]
+  /// in [parameters] with its URL string.
+  Future<WiroJson> _resolveFileInputs(
+    WiroJson parameters,
+    WiroCancellationToken? cancellationToken,
+  ) async {
+    if (!_containsFileInput(parameters)) {
+      return parameters;
+    }
+    final resolved = await _resolveFileValue(parameters, cancellationToken);
+    return (resolved! as Map<Object?, Object?>).cast<String, Object?>();
+  }
+
+  static bool _containsFileInput(Object? value) {
+    return switch (value) {
+      WiroFileInput() => true,
+      final List<Object?> list => list.any(_containsFileInput),
+      final Map<Object?, Object?> map => map.values.any(_containsFileInput),
+      _ => false,
+    };
+  }
+
+  Future<Object?> _resolveFileValue(
+    Object? value,
+    WiroCancellationToken? cancellationToken,
+  ) async {
+    switch (value) {
+      case WiroUrlInput(:final url):
+        return url.toString();
+      case WiroBytesInput(:final bytes, :final fileName):
+        final upload = await uploadFile(
+          bytes,
+          fileName: fileName,
+          cancellationToken: cancellationToken,
+        );
+        final url = upload.files.isEmpty ? null : upload.files.first.url;
+        if (url == null) {
+          throw WiroUnknownApiException(
+            'The upload for "$fileName" did not return a file URL.',
+            statusCode: 200,
+            responseBody: jsonEncode(upload.raw),
+          );
+        }
+        return url.toString();
+      case final List<Object?> list:
+        return [
+          for (final item in list)
+            await _resolveFileValue(item, cancellationToken),
+        ];
+      case final Map<Object?, Object?> map:
+        return {
+          for (final entry in map.entries)
+            entry.key: await _resolveFileValue(entry.value, cancellationToken),
+        };
+      case _:
+        return value;
+    }
+  }
+
+  /// Starts a typed model [request] without tracking it.
+  ///
+  /// This billable operation is not retried automatically.
+  @override
+  Future<WiroRunResult> runRequest(
+    WiroModelRequest request, {
+    Uri? callbackUrl,
+    WiroCancellationToken? cancellationToken,
+  }) {
+    return runModel(
+      request.model,
+      parameters: request.toJson(),
+      callbackUrl: callbackUrl,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  /// Starts [model], tracks it, and returns a typed terminal result.
   ///
   /// [trackingMode] chooses polling or WebSocket tracking. [onUpdate] receives
-  /// the same normalized update type for both transports. By default a
-  /// terminal task that did not succeed throws [WiroTaskFailedException].
-  /// Set [throwOnTaskFailure] to `false` to inspect that task directly.
-  Future<WiroTask> subscribe(
-    String model, {
+  /// the same sealed update type for both transports.
+  @override
+  Future<WiroTaskResult> subscribe(
+    WiroModelId model, {
     WiroJson parameters = const {},
     Uri? callbackUrl,
     Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
     WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
     WiroTaskUpdateCallback? onUpdate,
-    bool throwOnTaskFailure = true,
+  }) async {
+    final task = await _subscribeTask(
+      model,
+      parameters: parameters,
+      callbackUrl: callbackUrl,
+      timeout: timeout,
+      cancellationToken: cancellationToken,
+      trackingMode: trackingMode,
+      onUpdate: onUpdate,
+    );
+    return task.isSuccessful
+        ? WiroTaskSuccess(task)
+        : WiroTaskFailure.fromTask(task);
+  }
+
+  /// Starts a typed model [request], tracks it, and returns its result.
+  @override
+  Future<WiroTaskResult> subscribeRequest(
+    WiroModelRequest request, {
+    Uri? callbackUrl,
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+    WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
+    WiroTaskUpdateCallback? onUpdate,
+  }) {
+    return subscribe(
+      request.model,
+      parameters: request.toJson(),
+      callbackUrl: callbackUrl,
+      timeout: timeout,
+      cancellationToken: cancellationToken,
+      trackingMode: trackingMode,
+      onUpdate: onUpdate,
+    );
+  }
+
+  /// Starts [model] and streams typed updates until tracking completes.
+  ///
+  /// Cancelling the returned subscription stops active task tracking.
+  @override
+  Stream<WiroTaskUpdate> subscribeStream(
+    WiroModelId model, {
+    WiroJson parameters = const {},
+    Uri? callbackUrl,
+    Duration timeout = const Duration(minutes: 10),
+    WiroCancellationToken? cancellationToken,
+    WiroTaskTrackingMode trackingMode = WiroTaskTrackingMode.polling,
+  }) {
+    final subscriptionToken = WiroCancellationToken();
+    var cancelledByListener = false;
+    if (cancellationToken case final callerToken?) {
+      if (callerToken.isCancelled) {
+        subscriptionToken.cancel();
+      } else {
+        unawaited(
+          callerToken.whenCancelled.then((_) => subscriptionToken.cancel()),
+        );
+      }
+    }
+
+    late final StreamController<WiroTaskUpdate> controller;
+    Future<void> track() async {
+      try {
+        await _subscribeTask(
+          model,
+          parameters: parameters,
+          callbackUrl: callbackUrl,
+          timeout: timeout,
+          cancellationToken: subscriptionToken,
+          trackingMode: trackingMode,
+          onUpdate: (update) {
+            if (!cancelledByListener && !controller.isClosed) {
+              controller.add(update);
+            }
+          },
+        );
+      } on Object catch (error, stackTrace) {
+        if (!cancelledByListener && !controller.isClosed) {
+          controller.addError(error, stackTrace);
+        }
+      } finally {
+        if (!controller.isClosed) {
+          await controller.close();
+        }
+      }
+    }
+
+    controller = StreamController<WiroTaskUpdate>(
+      onListen: () {
+        unawaited(track());
+      },
+      onCancel: () {
+        cancelledByListener = true;
+        subscriptionToken.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  Future<WiroTask> _subscribeTask(
+    WiroModelId model, {
+    required WiroJson parameters,
+    required Uri? callbackUrl,
+    required Duration timeout,
+    required WiroCancellationToken? cancellationToken,
+    required WiroTaskTrackingMode trackingMode,
+    required WiroTaskUpdateCallback? onUpdate,
   }) async {
     if (timeout <= Duration.zero) {
       throw ArgumentError.value(
@@ -230,30 +614,35 @@ final class WiroClient {
       callbackUrl: callbackUrl,
       cancellationToken: cancellationToken,
     );
+    final taskToken = run.taskToken;
+    if (taskToken == null) {
+      throw WiroUnknownApiException(
+        'The model run response did not contain a task token.',
+        statusCode: 200,
+        responseBody: jsonEncode(run.raw),
+      );
+    }
 
     final task = switch (trackingMode) {
       WiroTaskTrackingMode.polling => await _trackTaskWithPolling(
-        run.taskToken,
+        taskToken,
         timeout: timeout,
         cancellationToken: cancellationToken,
         onUpdate: onUpdate,
       ),
       WiroTaskTrackingMode.webSocket => await _trackTaskWithSocket(
-        run.taskToken,
+        taskToken,
         timeout: timeout,
         cancellationToken: cancellationToken,
         onUpdate: onUpdate,
       ),
     };
 
-    if (throwOnTaskFailure && !task.isSuccessful) {
-      throw WiroTaskFailedException(task);
-    }
     return task;
   }
 
   Future<WiroTask> _trackTaskWithPolling(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     required Duration timeout,
     WiroCancellationToken? cancellationToken,
     WiroTaskUpdateCallback? onUpdate,
@@ -276,7 +665,7 @@ final class WiroClient {
   }
 
   Future<WiroTask> _trackTaskWithSocket(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     required Duration timeout,
     WiroCancellationToken? cancellationToken,
     WiroTaskUpdateCallback? onUpdate,
@@ -290,10 +679,7 @@ final class WiroClient {
       onUpdate?.call(WiroTaskUpdate.fromSocketEvent(event));
     }
 
-    final task = await getTask(
-      taskToken: taskToken,
-      cancellationToken: cancellationToken,
-    );
+    final task = await getTask(taskToken, cancellationToken: cancellationToken);
     if (task.status.isTerminal) {
       return task;
     }
@@ -313,62 +699,64 @@ final class WiroClient {
     );
   }
 
-  /// Returns task details using a task token or task ID.
-  Future<WiroTask> getTask({
-    String? taskToken,
-    String? taskId,
+  /// Returns task details using [token].
+  @override
+  Future<WiroTask> getTask(
+    WiroTaskToken token, {
     WiroCancellationToken? cancellationToken,
   }) {
-    if (taskToken == null && taskId == null) {
-      throw ArgumentError('taskToken or taskId is required');
-    }
-    if (taskToken != null) {
-      _validateToken(taskToken, 'taskToken');
-    }
-    if (taskId != null) {
-      _validateToken(taskId, 'taskId');
-    }
-
     return _post(
       '/Task/Detail',
-      {
-        'tasktoken': ?taskToken,
-        'taskid': ?taskId,
-      },
+      {'tasktoken': token.value},
+      _taskFromResponse,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  /// Returns task details using the server-side task [id].
+  @override
+  Future<WiroTask> getTaskById(
+    WiroTaskId id, {
+    WiroCancellationToken? cancellationToken,
+  }) {
+    return _post(
+      '/Task/Detail',
+      {'taskid': id.value},
       _taskFromResponse,
       cancellationToken: cancellationToken,
     );
   }
 
   /// Requests cancellation of a queued task.
+  @override
   Future<bool> cancelTask(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     WiroCancellationToken? cancellationToken,
   }) {
-    _validateToken(taskToken, 'taskToken');
     return _post(
       '/Task/Cancel',
-      {'tasktoken': taskToken},
+      {'tasktoken': taskToken.value},
       (json) => JsonReader.boolean(json['result']),
       cancellationToken: cancellationToken,
     );
   }
 
   /// Stops a running task.
+  @override
   Future<bool> killTask(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     WiroCancellationToken? cancellationToken,
   }) {
-    _validateToken(taskToken, 'taskToken');
     return _post(
       '/Task/Kill',
-      {'tasktoken': taskToken},
+      {'tasktoken': taskToken.value},
       (json) => JsonReader.boolean(json['result']),
       cancellationToken: cancellationToken,
     );
   }
 
   /// Uploads [bytes] to Wiro.
+  @override
   Future<WiroUploadResult> uploadFile(
     List<int> bytes, {
     required String fileName,
@@ -386,6 +774,7 @@ final class WiroClient {
   ///
   /// The caller must provide the exact [contentLength]. Uploads are not
   /// automatically retried because a retry could create a duplicate file.
+  @override
   Future<WiroUploadResult> uploadStream(
     Stream<List<int>> stream, {
     required int contentLength,
@@ -418,19 +807,21 @@ final class WiroClient {
         );
       },
     );
-    return WiroUploadResult.fromJson(_decodeResponse(response));
+    return _parseServerData(
+      () => WiroUploadResult.fromJson(_decodeResponse(response)),
+    );
   }
 
   /// Emits polled task snapshots until the task reaches a terminal status.
   ///
   /// Cancelling the stream does not abort an in-flight HTTP request. Supply a
   /// [cancellationToken] when request cancellation is required.
+  @override
   Stream<WiroTask> watchTask(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
   }) async* {
-    _validateToken(taskToken, 'taskToken');
     if (timeout <= Duration.zero) {
       throw ArgumentError.value(
         timeout,
@@ -444,7 +835,7 @@ final class WiroClient {
     while (DateTime.now().isBefore(deadline)) {
       cancellationToken?.throwIfCancelled();
       final task = await getTask(
-        taskToken: taskToken,
+        taskToken,
         cancellationToken: cancellationToken,
       );
       yield task;
@@ -469,12 +860,12 @@ final class WiroClient {
   /// closes the connection after `task_postprocess_end` or `task_cancel`.
   /// JSON frames are emitted as [WiroSocketMessageEvent], while realtime
   /// binary frames are emitted as [WiroSocketBinaryEvent].
+  @override
   Stream<WiroSocketEvent> watchTaskSocket(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
   }) async* {
-    _validateToken(taskToken, 'taskToken');
     if (timeout <= Duration.zero) {
       throw ArgumentError.value(
         timeout,
@@ -505,7 +896,7 @@ final class WiroClient {
       cancellationToken?.throwIfCancelled();
 
       channel.sink.add(
-        jsonEncode({'type': 'task_info', 'tasktoken': taskToken}),
+        jsonEncode({'type': 'task_info', 'tasktoken': taskToken.value}),
       );
       _log(
         WiroLogEvent(
@@ -569,8 +960,9 @@ final class WiroClient {
   }
 
   /// Polls until a task reaches a terminal status.
+  @override
   Future<WiroTask> waitForTask(
-    String taskToken, {
+    WiroTaskToken taskToken, {
     Duration timeout = const Duration(minutes: 10),
     WiroCancellationToken? cancellationToken,
   }) async {
@@ -593,6 +985,7 @@ final class WiroClient {
   /// Releases the internally created HTTP client.
   ///
   /// A client injected through the constructor remains owned by the caller.
+  @override
   void close() {
     if (_ownsHttpClient) {
       _httpClient.close();
@@ -612,16 +1005,12 @@ final class WiroClient {
       cancellationToken: cancellationToken,
       retryable: retryable,
       requestBuilder: (uri, abortTrigger) {
-        return http.AbortableRequest(
-            'POST',
-            uri,
-            abortTrigger: abortTrigger,
-          )
+        return http.AbortableRequest('POST', uri, abortTrigger: abortTrigger)
           ..headers.addAll(_authHeaders())
           ..body = jsonEncode(body);
       },
     );
-    return fromJson(_decodeResponse(response));
+    return _parseServerData(() => fromJson(_decodeResponse(response)));
   }
 
   Future<http.Response> _sendWithPolicy({
@@ -742,10 +1131,7 @@ final class WiroClient {
           cause: error,
         );
       }
-      throw WiroNetworkException(
-        'The Wiro request was aborted.',
-        cause: error,
-      );
+      throw WiroNetworkException('The Wiro request was aborted.', cause: error);
     } on http.ClientException catch (error) {
       throw WiroNetworkException(
         'Unable to communicate with the Wiro API.',
@@ -814,20 +1200,11 @@ final class WiroClient {
     final multipart = http.MultipartRequest('POST', uri)
       ..headers.addAll(_authHeaders(includeContentType: false))
       ..files.add(
-        http.MultipartFile(
-          'file',
-          stream,
-          contentLength,
-          filename: fileName,
-        ),
+        http.MultipartFile('file', stream, contentLength, filename: fileName),
       );
     final body = multipart.finalize();
     final request =
-        http.AbortableStreamedRequest(
-            'POST',
-            uri,
-            abortTrigger: abortTrigger,
-          )
+        http.AbortableStreamedRequest('POST', uri, abortTrigger: abortTrigger)
           ..headers.addAll(multipart.headers)
           ..contentLength = multipart.contentLength;
 
@@ -841,17 +1218,23 @@ final class WiroClient {
   }
 
   Map<String, String> _authHeaders({bool includeContentType = true}) {
-    final headers = <String, String>{'x-api-key': _apiKey};
+    final headers = <String, String>{..._extraHeaders};
     if (includeContentType) {
       headers['Content-Type'] = 'application/json';
     }
+
+    final apiKey = _apiKey;
+    if (apiKey == null) {
+      return headers;
+    }
+    headers['x-api-key'] = apiKey;
 
     final apiSecret = _apiSecret;
     if (apiSecret != null) {
       final nonce = DateTime.now().millisecondsSinceEpoch.toString();
       final signature = Hmac(
         sha256,
-        utf8.encode(_apiKey),
+        utf8.encode(apiKey),
       ).convert(utf8.encode('$apiSecret$nonce'));
       headers['x-signature'] = '$signature';
       headers['x-nonce'] = nonce;
@@ -926,7 +1309,7 @@ final class WiroClient {
       _responseErrorMessage(response.body),
       statusCode: response.statusCode,
       responseBody: response.body,
-      code: firstError['code'],
+      code: JsonReader.string(firstError['code']),
     );
     _logApiFailure(response, exception.message);
     return exception;
@@ -971,6 +1354,18 @@ final class WiroClient {
     logger?.call(event);
   }
 
+  T _parseServerData<T>(T Function() parse) {
+    return JsonReader.runWithMalformedJsonHandler((_, error) {
+      _log(
+        WiroLogEvent(
+          level: WiroLogLevel.debug,
+          message: 'Ignored malformed nested JSON in a Wiro response.',
+          error: error,
+        ),
+      );
+    }, parse);
+  }
+
   void _logFailure({
     required String method,
     required Uri uri,
@@ -985,27 +1380,6 @@ final class WiroClient {
         error: error,
       ),
     );
-  }
-
-  static ({String owner, String project}) _parseModel(String model) {
-    final parts = model.split('/');
-    final slugPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
-    if (parts.length != 2 ||
-        !slugPattern.hasMatch(parts.first) ||
-        !slugPattern.hasMatch(parts.last)) {
-      throw ArgumentError.value(model, 'model', 'Use the "owner/model" format');
-    }
-
-    return (
-      owner: parts.first,
-      project: parts.last,
-    );
-  }
-
-  static void _validateToken(String value, String name) {
-    if (value.trim().isEmpty) {
-      throw ArgumentError.value(value, name, 'Cannot be empty');
-    }
   }
 
   static WiroModelSchema _modelSchemaFromResponse(WiroJson json) {
@@ -1032,7 +1406,7 @@ final class WiroClient {
     return WiroTask.fromJson(JsonReader.map(tasks.first));
   }
 
-  static WiroSocketEvent _decodeSocketEvent(Object? frame) {
+  WiroSocketEvent _decodeSocketEvent(Object? frame) {
     if (frame case final List<int> bytes) {
       return WiroSocketBinaryEvent(bytes);
     }
@@ -1040,8 +1414,8 @@ final class WiroClient {
       try {
         final decoded = jsonDecode(text);
         if (decoded case final Map<String, dynamic> json) {
-          return WiroSocketMessageEvent.fromJson(
-            json.cast<String, Object?>(),
+          return _parseServerData(
+            () => WiroSocketMessageEvent.fromJson(json.cast<String, Object?>()),
           );
         }
       } on FormatException catch (error) {
@@ -1064,7 +1438,7 @@ final class WiroClient {
     return uri.toString().replaceFirst(RegExp(r'/+$'), '');
   }
 
-  static Uri _validateBaseUri(Uri uri) {
+  static Uri _validateHttpOrigin(Uri uri, String name) {
     final hasHttpScheme = uri.scheme == 'https' || uri.scheme == 'http';
     if (!hasHttpScheme ||
         !uri.hasAuthority ||
@@ -1073,11 +1447,28 @@ final class WiroClient {
         uri.hasFragment) {
       throw ArgumentError.value(
         uri,
-        'baseUri',
+        name,
         'Must be an HTTP(S) origin without credentials, query, or fragment',
       );
     }
     return uri;
+  }
+
+  static void _validateTimings(Duration requestTimeout, Duration pollInterval) {
+    if (requestTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        requestTimeout,
+        'requestTimeout',
+        'Must be greater than zero',
+      );
+    }
+    if (pollInterval < Duration.zero) {
+      throw ArgumentError.value(
+        pollInterval,
+        'pollInterval',
+        'Cannot be negative',
+      );
+    }
   }
 
   static Uri _validateCallbackUrl(Uri uri) {
@@ -1113,7 +1504,4 @@ final class WiroClient {
 }
 
 typedef _RequestBuilder =
-    FutureOr<http.BaseRequest> Function(
-      Uri uri,
-      Future<void> abortTrigger,
-    );
+    FutureOr<http.BaseRequest> Function(Uri uri, Future<void> abortTrigger);

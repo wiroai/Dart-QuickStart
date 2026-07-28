@@ -1,5 +1,3 @@
-import 'package:wiro_client/src/model/wiro_task.dart';
-
 /// Base class for all exceptions produced by the Wiro SDK.
 sealed class WiroException implements Exception {
   /// Creates a Wiro exception.
@@ -49,7 +47,7 @@ final class WiroApiResultException extends WiroApiException {
   });
 
   /// Machine-readable Wiro error code, when supplied.
-  final Object? code;
+  final String? code;
 }
 
 /// Indicates that the supplied Wiro credentials were rejected.
@@ -70,6 +68,17 @@ final class WiroValidationException extends WiroApiException {
     required super.statusCode,
     required super.responseBody,
   });
+}
+
+/// Indicates that parameters do not satisfy a model schema.
+final class WiroSchemaValidationException extends WiroException {
+  /// Creates a local schema validation exception.
+  WiroSchemaValidationException(List<String> issues)
+    : issues = List.unmodifiable(issues),
+      super(issues.join('; '));
+
+  /// Individual schema validation problems in discovery order.
+  final List<String> issues;
 }
 
 /// Indicates that the Wiro API rate limit was exceeded.
@@ -107,20 +116,6 @@ final class WiroNetworkException extends WiroException {
 final class WiroWebSocketException extends WiroException {
   /// Creates a WebSocket exception.
   const WiroWebSocketException(super.message, {super.cause});
-}
-
-/// Indicates that a task reached a terminal state without succeeding.
-final class WiroTaskFailedException extends WiroException {
-  /// Creates a task failure exception.
-  WiroTaskFailedException(this.task)
-    : super(
-        'Wiro task ${task.id.isEmpty ? 'unknown' : task.id} '
-        'finished with status ${task.statusValue} and exit code '
-        '${task.exitCode ?? 'unknown'}.',
-      );
-
-  /// Terminal task returned by Wiro.
-  final WiroTask task;
 }
 
 /// Indicates that a Wiro request exceeded its configured timeout.

@@ -23,17 +23,36 @@ Future<void> main() async {
     }
 
     final model = search.items.single;
-    final schema = await client.getModelSchema(model.identifier);
-    if (schema.model.identifier != model.identifier) {
+    final modelId = model.modelId;
+    if (modelId == null) {
+      throw StateError('Model search returned invalid slug fields.');
+    }
+    final schema = await client.getModelSchema(modelId);
+    if (schema.model.modelId != modelId) {
       throw StateError('Model detail did not match the search result.');
     }
 
     final categories = await client.explore();
+    final defaultCount = schema.parameters
+        .map(_parameterDefault)
+        .where((value) => value != null)
+        .length;
     stdout
-      ..writeln('Model: ${model.identifier}')
+      ..writeln('Model: $modelId')
       ..writeln('Parameters: ${schema.parameters.length}')
+      ..writeln('Typed defaults: $defaultCount')
       ..writeln('Explore categories: ${categories.length}');
   } finally {
     client.close();
   }
+}
+
+Object? _parameterDefault(WiroModelParameter parameter) {
+  return switch (parameter) {
+    WiroSelectParameter(:final defaultValue) => defaultValue,
+    WiroNumberParameter(:final defaultValue) => defaultValue,
+    WiroTextParameter(:final defaultValue) => defaultValue,
+    WiroFileParameter() => null,
+    WiroUnknownParameter(:final defaultValue) => defaultValue,
+  };
 }

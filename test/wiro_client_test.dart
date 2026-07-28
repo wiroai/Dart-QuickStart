@@ -1,12 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:wiro_client/wiro_client.dart';
+
+final _demoModel = WiroModelId('wiro', 'demo');
+final _fluxModel = WiroModelId('black-forest-labs', 'flux-2-pro');
+final _taskToken = WiroTaskToken('task-token');
 
 void main() {
   group('WiroClient configuration', () {
@@ -102,6 +107,39 @@ void main() {
       await client.explore();
       client.close();
     });
+
+    test('routes proxied clients without Wiro credentials', () async {
+      final client = WiroClient.proxied(
+        proxyUri: Uri.parse('https://backend.example.com/wiro'),
+        headers: const {'Authorization': 'Bearer session-token'},
+        httpClient: MockClient((request) async {
+          expect(request.url.host, 'backend.example.com');
+          expect(request.url.path, '/wiro/Tool/Explore');
+          expect(request.headers['x-api-key'], isNull);
+          expect(request.headers['x-signature'], isNull);
+          expect(request.headers['authorization'], 'Bearer session-token');
+          return _jsonResponse(_emptyExploreResponse);
+        }),
+      );
+
+      expect(client.authType, WiroAuthType.proxy);
+      await client.explore();
+      client.close();
+    });
+
+    test('rejects unsafe proxy URI shapes', () {
+      for (final uri in [
+        'ftp://backend.example.com',
+        'https://user:pass@backend.example.com',
+        'https://backend.example.com/wiro?token=1',
+      ]) {
+        expect(
+          () => WiroClient.proxied(proxyUri: Uri.parse(uri)),
+          throwsArgumentError,
+          reason: uri,
+        );
+      }
+    });
   });
 
   group('WiroClient model APIs', () {
@@ -113,6 +151,8 @@ void main() {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['search'], 'image');
           expect(body['limit'], '10');
+          expect(body['sort'], 'time');
+          expect(body['order'], 'DESC');
           return _jsonResponse(_modelListResponse);
         }),
       );
@@ -120,11 +160,13 @@ void main() {
       final response = await client.searchModels(
         search: 'image',
         limit: 10,
+        sort: WiroModelSort.time,
+        order: WiroSortOrder.descending,
       );
 
       expect(response.total, 1);
       expect(
-        response.items.single.identifier,
+        response.items.single.modelId?.value,
         'black-forest-labs/flux-2-pro',
       );
     });
@@ -156,10 +198,10 @@ void main() {
       );
 
       final schema = await client.getModelSchema(
-        'black-forest-labs/flux-2-pro',
+        _fluxModel,
       );
 
-      expect(schema.model.identifier, 'black-forest-labs/flux-2-pro');
+      expect(schema.model.modelId?.value, 'black-forest-labs/flux-2-pro');
       expect(schema.parameters.single.id, 'prompt');
     });
 
@@ -179,13 +221,75 @@ void main() {
       );
 
       final result = await client.runModel(
-        'black-forest-labs/flux-2-pro',
+        _fluxModel,
         parameters: {'prompt': 'A mountain'},
         callbackUrl: Uri.parse('https://example.com/wiro'),
       );
 
-      expect(result.taskId, '42');
-      expect(result.taskToken, 'task-token');
+      expect(result.taskId?.value, '42');
+      expect(result.taskToken?.value, 'task-token');
+    });
+
+    test('auto-uploads device file inputs before the run', () async {
+      final paths = <String>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient.streaming((request, bodyStream) async {
+          paths.add(request.url.path);
+          if (request.url.path == '/v1/File/Upload') {
+            return _streamedJsonResponse(_uploadResponse);
+          }
+          final body =
+              jsonDecode(utf8.decode(await bodyStream.toBytes()))
+                  as Map<String, dynamic>;
+          expect(body['prompt'], 'A mountain');
+          expect(body['inputImage'], ['https://cdn.wiro.ai/photo.png']);
+          return _streamedJsonResponse(_runResponse);
+        }),
+      );
+
+      final result = await client.runModel(
+        _fluxModel,
+        parameters: {
+          'prompt': 'A mountain',
+          'inputImage': [
+            WiroFileInput.bytes(
+              utf8.encode('image-data'),
+              fileName: 'photo.png',
+            ),
+          ],
+        },
+      );
+
+      expect(paths, [
+        '/v1/File/Upload',
+        '/v1/Run/black-forest-labs/flux-2-pro',
+      ]);
+      expect(result.taskToken?.value, 'task-token');
+    });
+
+    test('resolves URL file inputs without uploading', () async {
+      final paths = <String>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          paths.add(request.url.path);
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['inputImage'], ['https://example.com/hosted.png']);
+          return _jsonResponse(_runResponse);
+        }),
+      );
+
+      await client.runModel(
+        _fluxModel,
+        parameters: {
+          'inputImage': [
+            WiroFileInput.url(Uri.parse('https://example.com/hosted.png')),
+          ],
+        },
+      );
+
+      expect(paths, ['/v1/Run/black-forest-labs/flux-2-pro']);
     });
 
     test('rejects an invalid callback URL', () {
@@ -196,7 +300,7 @@ void main() {
 
       expect(
         () => client.runModel(
-          'black-forest-labs/flux-2-pro',
+          _fluxModel,
           callbackUrl: Uri.parse('file:///tmp/callback'),
         ),
         throwsArgumentError,
@@ -204,23 +308,12 @@ void main() {
     });
 
     test('rejects an invalid model slug', () {
-      final client = WiroClient(
-        apiKey: 'test-key',
-        httpClient: MockClient((_) async => _jsonResponse(const {})),
-      );
-
+      expect(() => WiroModelId.parse('invalid'), throwsArgumentError);
       expect(
-        () => client.getModelSchema('invalid'),
+        () => WiroModelId.parse('owner/model/extra'),
         throwsArgumentError,
       );
-      expect(
-        () => client.getModelSchema('owner/model/extra'),
-        throwsArgumentError,
-      );
-      expect(
-        () => client.getModelSchema('../model'),
-        throwsArgumentError,
-      );
+      expect(() => WiroModelId.parse('../model'), throwsArgumentError);
     });
   });
 
@@ -244,22 +337,18 @@ void main() {
         }),
       );
 
-      final task = await client.subscribe(
-        'wiro/demo',
+      final result = await client.subscribe(
+        _demoModel,
         onUpdate: updates.add,
       );
 
-      expect(task.isSuccessful, isTrue);
+      expect(result, isA<WiroTaskSuccess>());
+      expect(result.task.isSuccessful, isTrue);
       expect(
         updates.map((update) => update.status),
         [WiroTaskStatus.running, WiroTaskStatus.completed],
       );
-      expect(
-        updates.every(
-          (update) => update.source == WiroTaskUpdateSource.polling,
-        ),
-        isTrue,
-      );
+      expect(updates, everyElement(isA<WiroTaskSnapshotUpdate>()));
     });
 
     test('validates subscription timeout before running a model', () async {
@@ -273,13 +362,13 @@ void main() {
       );
 
       await expectLater(
-        client.subscribe('wiro/demo', timeout: Duration.zero),
+        client.subscribe(_demoModel, timeout: Duration.zero),
         throwsArgumentError,
       );
       expect(requestCount, 0);
     });
 
-    test('throws a typed exception for a failed subscription', () async {
+    test('returns a typed failure for a failed subscription', () async {
       final client = WiroClient(
         apiKey: 'test-key',
         pollInterval: Duration.zero,
@@ -292,22 +381,31 @@ void main() {
         }),
       );
 
-      await expectLater(
-        client.subscribe('wiro/demo'),
-        throwsA(
-          isA<WiroTaskFailedException>()
-              .having(
-                (error) => error.task.exitCode,
-                'task.exitCode',
-                '1',
-              )
-              .having(
-                (error) => error.task.debugOutput,
-                'task.debugOutput',
-                'Model failed',
-              ),
-        ),
+      final result = await client.subscribe(_demoModel);
+
+      expect(result, isA<WiroTaskFailure>());
+      expect(result.task.exitCode, 1);
+      expect(result.task.debugOutput, 'Model failed');
+      expect(
+        (result as WiroTaskFailure).reason,
+        WiroTaskFailureReason.processFailed,
       );
+    });
+
+    test('derives typed task failure reasons', () {
+      final cancelled = WiroTaskFailure.fromTask(
+        WiroTask.fromJson(const {'status': 'task_cancel'}),
+      );
+      final missingExitCode = WiroTaskFailure.fromTask(
+        WiroTask.fromJson(const {'status': 'task_postprocess_end'}),
+      );
+      final unknown = WiroTaskFailure.fromTask(
+        WiroTask.fromJson(const {'status': 'future_terminal_status'}),
+      );
+
+      expect(cancelled.reason, WiroTaskFailureReason.cancelled);
+      expect(missingExitCode.reason, WiroTaskFailureReason.processFailed);
+      expect(unknown.reason, WiroTaskFailureReason.unknown);
     });
 
     test('can return a failed subscription task', () async {
@@ -323,13 +421,11 @@ void main() {
         }),
       );
 
-      final task = await client.subscribe(
-        'wiro/demo',
-        throwOnTaskFailure: false,
-      );
+      final result = await client.subscribe(_demoModel);
 
-      expect(task.isFinished, isTrue);
-      expect(task.isSuccessful, isFalse);
+      expect(result, isA<WiroTaskFailure>());
+      expect(result.task.isFinished, isTrue);
+      expect(result.task.isSuccessful, isFalse);
     });
 
     test('gets task details by token', () async {
@@ -342,23 +438,30 @@ void main() {
         }),
       );
 
-      final task = await client.getTask(taskToken: 'task-token');
+      final task = await client.getTask(_taskToken);
 
       expect(task.status, WiroTaskStatus.completed);
       expect(task.isSuccessful, isTrue);
     });
 
-    test('requires a token or an ID', () {
+    test('gets task details by ID', () async {
       final client = WiroClient(
         apiKey: 'test-key',
-        httpClient: MockClient((_) async => _jsonResponse(const {})),
+        httpClient: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['taskid'], '42');
+          return _jsonResponse(_completedTaskResponse);
+        }),
       );
 
-      expect(client.getTask, throwsArgumentError);
-      expect(
-        () => client.getTask(taskToken: ' '),
-        throwsArgumentError,
-      );
+      final task = await client.getTaskById(WiroTaskId('42'));
+
+      expect(task.id?.value, '42');
+    });
+
+    test('validates typed task references', () {
+      expect(() => WiroTaskToken(' '), throwsArgumentError);
+      expect(() => WiroTaskId(' '), throwsArgumentError);
     });
 
     test('waits until the task is terminal', () async {
@@ -374,7 +477,7 @@ void main() {
         }),
       );
 
-      final task = await client.waitForTask('task-token');
+      final task = await client.waitForTask(_taskToken);
 
       expect(task.status, WiroTaskStatus.completed);
       expect(requestCount, 2);
@@ -393,12 +496,64 @@ void main() {
         }),
       );
 
-      final tasks = await client.watchTask('task-token').toList();
+      final tasks = await client.watchTask(_taskToken).toList();
 
       expect(
         tasks.map((task) => task.status),
         [WiroTaskStatus.running, WiroTaskStatus.completed],
       );
+    });
+
+    test('streams subscription updates', () async {
+      var requestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: Duration.zero,
+        httpClient: MockClient((request) async {
+          if (request.url.path.startsWith('/v1/Run')) {
+            return _jsonResponse(_runResponse);
+          }
+          requestCount++;
+          return _jsonResponse(
+            requestCount == 1 ? _runningTaskResponse : _completedTaskResponse,
+          );
+        }),
+      );
+
+      final updates = await client.subscribeStream(_demoModel).toList();
+
+      expect(updates, hasLength(2));
+      expect(updates, everyElement(isA<WiroTaskSnapshotUpdate>()));
+      expect(updates.last.isTerminal, isTrue);
+    });
+
+    test('stops polling when the subscription is cancelled', () async {
+      var detailRequestCount = 0;
+      final client = WiroClient(
+        apiKey: 'test-key',
+        pollInterval: const Duration(milliseconds: 5),
+        httpClient: MockClient((request) async {
+          if (request.url.path.startsWith('/v1/Run')) {
+            return _jsonResponse(_runResponse);
+          }
+          detailRequestCount++;
+          return _jsonResponse(_runningTaskResponse);
+        }),
+      );
+      final cancelled = Completer<void>();
+      late final StreamSubscription<WiroTaskUpdate> subscription;
+      subscription = client.subscribeStream(_demoModel).listen((_) {
+        if (!cancelled.isCompleted) {
+          unawaited(subscription.cancel().then((_) => cancelled.complete()));
+        }
+      });
+
+      await cancelled.future;
+      final requestsAfterCancellation = detailRequestCount;
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(requestsAfterCancellation, 1);
+      expect(detailRequestCount, requestsAfterCancellation);
     });
 
     test('throws when task polling times out', () async {
@@ -412,7 +567,7 @@ void main() {
 
       await expectLater(
         client.waitForTask(
-          'task-token',
+          _taskToken,
           timeout: const Duration(milliseconds: 1),
         ),
         throwsA(isA<WiroTimeoutException>()),
@@ -428,11 +583,7 @@ void main() {
       );
 
       await expectLater(
-        client.watchTask(' ').toList(),
-        throwsArgumentError,
-      );
-      await expectLater(
-        client.watchTask('task-token', timeout: Duration.zero).toList(),
+        client.watchTask(_taskToken, timeout: Duration.zero).toList(),
         throwsArgumentError,
       );
     });
@@ -447,8 +598,8 @@ void main() {
         }),
       );
 
-      expect(await client.cancelTask('task-token'), isTrue);
-      expect(await client.killTask('task-token'), isTrue);
+      expect(await client.cancelTask(_taskToken), isTrue);
+      expect(await client.killTask(_taskToken), isTrue);
       expect(paths, ['/v1/Task/Cancel', '/v1/Task/Kill']);
     });
   });
@@ -501,13 +652,14 @@ void main() {
         }),
       );
 
-      final task = await client.subscribe(
-        'wiro/demo',
+      final result = await client.subscribe(
+        _demoModel,
         trackingMode: WiroTaskTrackingMode.webSocket,
         onUpdate: updates.add,
       );
 
-      expect(task.isSuccessful, isTrue);
+      expect(result, isA<WiroTaskSuccess>());
+      expect(result.task.isSuccessful, isTrue);
       expect(paths, ['/v1/Run/wiro/demo', '/v1/Task/Detail']);
       expect(
         updates.map((update) => update.status),
@@ -517,14 +669,11 @@ void main() {
           WiroTaskStatus.completed,
         ],
       );
-      expect(
-        updates.every(
-          (update) => update.source == WiroTaskUpdateSource.webSocket,
-        ),
-        isTrue,
-      );
-      expect(updates[1].progress?.percentage, 75);
-      expect(updates.last.outputs.single.name, 'result.png');
+      expect(updates, everyElement(isA<WiroTaskEventUpdate>()));
+      final progress = (updates[1] as WiroTaskEventUpdate).event.progress;
+      final outputs = (updates.last as WiroTaskEventUpdate).event.outputs;
+      expect(progress?.percentage, 75);
+      expect(outputs.single.name, 'result.png');
       await server.done;
     });
 
@@ -532,13 +681,9 @@ void main() {
       final client = WiroClient(apiKey: 'test-key');
 
       await expectLater(
-        client.watchTaskSocket(' ').toList(),
-        throwsArgumentError,
-      );
-      await expectLater(
         client
             .watchTaskSocket(
-              'task-token',
+              _taskToken,
               timeout: Duration.zero,
             )
             .toList(),
@@ -592,7 +737,7 @@ void main() {
           socketUri: server.uri,
         );
 
-        final events = await client.watchTaskSocket('task-token').toList();
+        final events = await client.watchTaskSocket(_taskToken).toList();
         final messages = events.whereType<WiroSocketMessageEvent>().toList();
 
         expect(
@@ -624,7 +769,7 @@ void main() {
         socketUri: server.uri,
       );
 
-      final events = await client.watchTaskSocket('task-token').toList();
+      final events = await client.watchTaskSocket(_taskToken).toList();
 
       expect(
         (events.first as WiroSocketBinaryEvent).bytes,
@@ -654,7 +799,7 @@ void main() {
 
       final events = client
           .watchTaskSocket(
-            'task-token',
+            _taskToken,
             cancellationToken: cancellationToken,
           )
           .toList();
@@ -684,7 +829,7 @@ void main() {
       await expectLater(
         client
             .watchTaskSocket(
-              'task-token',
+              _taskToken,
               timeout: const Duration(milliseconds: 10),
             )
             .toList(),
@@ -706,7 +851,7 @@ void main() {
       );
 
       await expectLater(
-        client.watchTaskSocket('task-token').toList(),
+        client.watchTaskSocket(_taskToken).toList(),
         throwsA(isA<WiroWebSocketException>()),
       );
       await server.done;
@@ -794,10 +939,10 @@ void main() {
       );
 
       await expectLater(
-        client.runModel('wiro/demo'),
+        client.runModel(_demoModel),
         throwsA(
           isA<WiroApiResultException>()
-              .having((error) => error.code, 'code', 97)
+              .having((error) => error.code, 'code', '97')
               .having(
                 (error) => error.message,
                 'message',
@@ -945,6 +1090,68 @@ void main() {
   });
 
   group('WiroClient retries and logging', () {
+    test('logs malformed nested response JSON without throwing', () async {
+      final events = <WiroLogEvent>[];
+      final client = WiroClient(
+        apiKey: 'test-key',
+        logger: events.add,
+        httpClient: MockClient(
+          (_) async => _jsonResponse(
+            const {
+              'result': true,
+              'tasklist': [
+                {
+                  'id': '42',
+                  'socketaccesstoken': 'task-token',
+                  'parameters': '{invalid',
+                },
+              ],
+            },
+          ),
+        ),
+      );
+
+      final task = await client.getTask(_taskToken);
+
+      expect(task.parameters, isEmpty);
+      expect(
+        events,
+        contains(
+          isA<WiroLogEvent>()
+              .having(
+                (event) => event.level,
+                'level',
+                WiroLogLevel.debug,
+              )
+              .having(
+                (event) => event.message,
+                'message',
+                contains('malformed nested JSON'),
+              )
+              .having(
+                (event) => event.error,
+                'error',
+                isA<FormatException>(),
+              ),
+        ),
+      );
+    });
+
+    test('keeps retry jitter within twenty percent', () {
+      const policy = WiroRetryPolicy(
+        initialDelay: Duration(seconds: 1),
+        maximumDelay: Duration(seconds: 10),
+      );
+      final random = Random(42);
+
+      final delays = List.generate(
+        20,
+        (_) => policy.delayFor(0, random: random).inMilliseconds,
+      );
+
+      expect(delays, everyElement(inInclusiveRange(800, 1200)));
+    });
+
     test('does not retry model runs', () async {
       var requestCount = 0;
       final client = WiroClient(
@@ -960,7 +1167,7 @@ void main() {
       );
 
       await expectLater(
-        client.runModel('wiro/demo'),
+        client.runModel(_demoModel),
         throwsA(isA<WiroUnknownApiException>()),
       );
       expect(requestCount, 1);
@@ -981,7 +1188,7 @@ void main() {
       );
 
       await expectLater(
-        client.runModel('wiro/demo'),
+        client.runModel(_demoModel),
         throwsA(isA<WiroNetworkException>()),
       );
       expect(requestCount, 1);

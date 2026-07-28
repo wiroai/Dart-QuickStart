@@ -1,6 +1,8 @@
 import 'package:wiro_client/src/model/json_reader.dart';
+import 'package:wiro_client/src/model/wiro_identifier.dart';
 import 'package:wiro_client/src/model/wiro_json.dart';
 import 'package:wiro_client/src/model/wiro_model.dart';
+import 'package:wiro_client/src/model/wiro_task.dart';
 
 /// An error included in a Wiro API response.
 final class WiroApiError {
@@ -10,13 +12,13 @@ final class WiroApiError {
   /// Creates an API error from a Wiro payload.
   factory WiroApiError.fromJson(WiroJson json) {
     return WiroApiError(
-      code: json['code'],
+      code: JsonReader.string(json['code']),
       message: JsonReader.string(json['message']) ?? 'Unknown Wiro API error',
     );
   }
 
   /// Machine-readable error code, when provided.
-  final Object? code;
+  final String? code;
 
   /// Human-readable error message.
   final String message;
@@ -85,8 +87,10 @@ final class WiroRunResult {
   factory WiroRunResult.fromJson(WiroJson json) {
     return WiroRunResult(
       isSuccess: JsonReader.boolean(json['result']),
-      taskId: JsonReader.string(json['taskid']) ?? '',
-      taskToken: JsonReader.string(json['socketaccesstoken']) ?? '',
+      taskId: WiroTaskId.tryParse(JsonReader.string(json['taskid'])),
+      taskToken: WiroTaskToken.tryParse(
+        JsonReader.string(json['socketaccesstoken']),
+      ),
       errors: parseWiroApiErrors(json['errors']),
       raw: Map.unmodifiable(json),
     );
@@ -95,17 +99,67 @@ final class WiroRunResult {
   /// Whether Wiro accepted the model run.
   final bool isSuccess;
 
-  /// Server-side task identifier.
-  final String taskId;
+  /// Server-side task identifier, or `null` when Wiro omitted it.
+  final WiroTaskId? taskId;
 
-  /// Token used to poll or subscribe to the task.
-  final String taskToken;
+  /// Token used to poll or subscribe, or `null` when Wiro omitted it.
+  final WiroTaskToken? taskToken;
 
   /// API errors returned with the response.
   final List<WiroApiError> errors;
 
   /// Original API payload for forward-compatible access.
   final WiroJson raw;
+}
+
+/// Terminal result of a subscribed Wiro task.
+sealed class WiroTaskResult {
+  const WiroTaskResult(this.task);
+
+  /// Terminal task returned by Wiro.
+  final WiroTask task;
+}
+
+/// A subscribed task that completed successfully.
+final class WiroTaskSuccess extends WiroTaskResult {
+  /// Creates a successful task result.
+  const WiroTaskSuccess(super.task);
+}
+
+/// Reason a subscribed Wiro task did not succeed.
+enum WiroTaskFailureReason {
+  /// The task was cancelled or killed before completing.
+  cancelled,
+
+  /// The model process exited with a non-zero exit code.
+  processFailed,
+
+  /// The task ended in an unrecognized non-successful state.
+  unknown,
+}
+
+/// A subscribed task that reached a non-successful terminal state.
+final class WiroTaskFailure extends WiroTaskResult {
+  const WiroTaskFailure._(super.task, this.reason);
+
+  /// Creates a failed result and derives its [reason] from [task].
+  factory WiroTaskFailure.fromTask(WiroTask task) {
+    final reason = switch (task) {
+      WiroTask(status: WiroTaskStatus.cancelled) =>
+        WiroTaskFailureReason.cancelled,
+      WiroTask(
+        status: WiroTaskStatus.completed,
+        :final exitCode,
+      )
+          when exitCode != 0 =>
+        WiroTaskFailureReason.processFailed,
+      _ => WiroTaskFailureReason.unknown,
+    };
+    return WiroTaskFailure._(task, reason);
+  }
+
+  /// Why the terminal task did not succeed.
+  final WiroTaskFailureReason reason;
 }
 
 /// Result of a file upload.
