@@ -19,9 +19,7 @@ final class WiroSocketMessageEvent extends WiroSocketEvent {
 
     return WiroSocketMessageEvent._(
       id: WiroTaskId.tryParse(JsonReader.string(json['id'])),
-      taskToken: WiroTaskToken.tryParse(
-        JsonReader.string(json['tasktoken']),
-      ),
+      taskToken: WiroTaskToken.tryParse(JsonReader.string(json['tasktoken'])),
       status: WiroTaskStatus.fromApiValue(statusValue),
       statusValue: statusValue,
       result: JsonReader.boolean(json['result']),
@@ -94,10 +92,7 @@ sealed class WiroSocketPayload {
   const WiroSocketPayload();
 
   /// Decodes [value] according to the surrounding event [statusValue].
-  factory WiroSocketPayload.fromValue(
-    String statusValue,
-    Object? value,
-  ) {
+  factory WiroSocketPayload.fromValue(String statusValue, Object? value) {
     if (statusValue == WiroTaskStatus.completed.apiValue) {
       final rawOutputs = JsonReader.list(value);
       final outputs = rawOutputs
@@ -116,9 +111,7 @@ sealed class WiroSocketPayload {
         final messageJson = JsonReader.map(message);
         final hasProgressKey = messageJson.keys.any(_progressKeys.contains);
         if (messageJson.isNotEmpty && hasProgressKey) {
-          return WiroProgressPayload(
-            WiroTaskProgress.fromJson(messageJson),
-          );
+          return WiroProgressPayload(WiroTaskProgress.fromJson(messageJson));
         }
       }
       return WiroLogPayload(message);

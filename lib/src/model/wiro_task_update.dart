@@ -14,10 +14,7 @@ enum WiroTaskTrackingMode {
 
 /// A normalized task update produced by polling or WebSocket tracking.
 sealed class WiroTaskUpdate {
-  const WiroTaskUpdate({
-    required this.status,
-    required this.statusValue,
-  });
+  const WiroTaskUpdate({required this.status, required this.statusValue});
 
   /// Creates an update from a polled task snapshot.
   factory WiroTaskUpdate.fromTask(WiroTask task) = WiroTaskSnapshotUpdate;

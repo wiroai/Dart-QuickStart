@@ -93,47 +93,37 @@ void main() {
 
     test('creates the sealed parameter variants', () {
       final parameters = [
-        WiroModelParameter.fromJson(
-          const {
-            'id': 'choice',
-            'type': 'select',
-            'default': 'one',
-            'options': [
-              {'label': 'One', 'value': 'one'},
-            ],
-          },
-        ),
-        WiroModelParameter.fromJson(
-          const {
-            'id': 'count',
-            'type': 'range',
-            'min': '1',
-            'max': 10,
-            'step': '0.5',
-            'default': '0.5',
-          },
-        ),
-        WiroModelParameter.fromJson(
-          const {
-            'id': 'prompt',
-            'type': 'textarea',
-            'default': 'Describe an image',
-          },
-        ),
-        WiroModelParameter.fromJson(
-          const {
-            'id': 'inputs',
-            'type': 'combinefileinput',
-            'default': ['https://example.com/input.png'],
-          },
-        ),
-        WiroModelParameter.fromJson(
-          const {
-            'id': 'future',
-            'type': 'future-input',
-            'default': {'mode': 'future'},
-          },
-        ),
+        WiroModelParameter.fromJson(const {
+          'id': 'choice',
+          'type': 'select',
+          'default': 'one',
+          'options': [
+            {'label': 'One', 'value': 'one'},
+          ],
+        }),
+        WiroModelParameter.fromJson(const {
+          'id': 'count',
+          'type': 'range',
+          'min': '1',
+          'max': 10,
+          'step': '0.5',
+          'default': '0.5',
+        }),
+        WiroModelParameter.fromJson(const {
+          'id': 'prompt',
+          'type': 'textarea',
+          'default': 'Describe an image',
+        }),
+        WiroModelParameter.fromJson(const {
+          'id': 'inputs',
+          'type': 'combinefileinput',
+          'default': ['https://example.com/input.png'],
+        }),
+        WiroModelParameter.fromJson(const {
+          'id': 'future',
+          'type': 'future-input',
+          'default': {'mode': 'future'},
+        }),
       ];
 
       final select = parameters[0] as WiroSelectParameter;
@@ -178,12 +168,7 @@ void main() {
                   {'label': 'PNG', 'value': 'png'},
                 ],
               },
-              {
-                'id': 'steps',
-                'type': 'range',
-                'min': 1,
-                'max': 10,
-              },
+              {'id': 'steps', 'type': 'range', 'min': 1, 'max': 10},
             ],
           },
         ],
@@ -201,11 +186,10 @@ void main() {
                 'message',
                 allOf(contains('format is required'), contains('at most 10.0')),
               )
-              .having(
-                (error) => error.issues,
-                'issues',
-                ['format is required', 'steps must be at most 10.0'],
-              )
+              .having((error) => error.issues, 'issues', [
+                'format is required',
+                'steps must be at most 10.0',
+              ])
               .having(
                 (error) => error,
                 'API exception',
@@ -423,15 +407,13 @@ void main() {
       }
 
       final log = event('Generating');
-      final progress = event(
-        const {'type': 'progressGenerate', 'percentage': '50'},
-      );
-      final outputs = event(
-        const [
-          {'contenttype': 'audio/mpeg', 'size': '20'},
-        ],
-        type: 'task_postprocess_end',
-      );
+      final progress = event(const {
+        'type': 'progressGenerate',
+        'percentage': '50',
+      });
+      final outputs = event(const [
+        {'contenttype': 'audio/mpeg', 'size': '20'},
+      ], type: 'task_postprocess_end');
       final unknown = event(const {'future': true});
 
       expect(log.payload, isA<WiroLogPayload>());

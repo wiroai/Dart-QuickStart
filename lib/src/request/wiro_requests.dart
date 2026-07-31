@@ -48,10 +48,7 @@ abstract final class Wiro {
   /// Call `WiroClient.getModelSchema` to discover the parameters a
   /// model accepts, and `WiroModelSchema.validate` to check the map
   /// locally before a paid run starts.
-  static WiroDynamicRequest model(
-    String slug, {
-    required WiroJson parameters,
-  }) {
+  static WiroDynamicRequest model(String slug, {required WiroJson parameters}) {
     return WiroDynamicRequest(WiroModelId.parse(slug), parameters: parameters);
   }
 
@@ -457,9 +454,6 @@ abstract final class Wiro {
     required String prompt,
     List<WiroFileInput>? inputImages,
   }) {
-    return WiroLyria3Request(
-      prompt: prompt,
-      inputImages: inputImages,
-    );
+    return WiroLyria3Request(prompt: prompt, inputImages: inputImages);
   }
 }

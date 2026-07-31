@@ -70,9 +70,7 @@ Future<void> main(List<String> arguments) async {
   final WiroModelSchema schema;
   if (fromJson != null) {
     final payload = jsonDecode(File(fromJson).readAsStringSync());
-    schema = WiroModelSchema.fromJson(
-      (payload as Map).cast<String, Object?>(),
-    );
+    schema = WiroModelSchema.fromJson((payload as Map).cast<String, Object?>());
   } else {
     apiKey ??= Platform.environment['WIRO_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {

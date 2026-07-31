@@ -15,10 +15,7 @@ final class JsonReader {
     WiroMalformedJsonCallback onError,
     T Function() action,
   ) {
-    return runZoned(
-      action,
-      zoneValues: {_malformedJsonHandlerKey: onError},
-    );
+    return runZoned(action, zoneValues: {_malformedJsonHandlerKey: onError});
   }
 
   static String? string(Object? value) {
@@ -75,10 +72,7 @@ final class JsonReader {
     return DateTime.tryParse(text);
   }
 
-  static WiroJson map(
-    Object? value, {
-    WiroMalformedJsonCallback? onError,
-  }) {
+  static WiroJson map(Object? value, {WiroMalformedJsonCallback? onError}) {
     if (value case final Map<Object?, Object?> source) {
       return Map.unmodifiable(
         source.map((key, value) => MapEntry('$key', value)),

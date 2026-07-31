@@ -22,10 +22,7 @@ void main() {
           'WiroModelRequest',
         ),
       );
-      expect(
-        source,
-        contains("WiroModelId('acme', 'demo-video-2')"),
-      );
+      expect(source, contains("WiroModelId('acme', 'demo-video-2')"));
     });
 
     test('maps plain selects to enums with wire values', () {
@@ -70,10 +67,7 @@ void main() {
 
     test('requires non-empty prompts and removes null entries', () {
       expect(source, contains("assert(prompt != '', 'prompt cannot be"));
-      expect(
-        source,
-        contains('..removeWhere((key, value) => value == null)'),
-      );
+      expect(source, contains('..removeWhere((key, value) => value == null)'));
     });
 
     test('documents the schema snapshot and regeneration command', () {

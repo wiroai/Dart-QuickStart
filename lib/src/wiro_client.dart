@@ -252,9 +252,7 @@ final class WiroClient implements WiroClientBase {
   }) : _apiKey = null,
        _apiSecret = null,
        _extraHeaders = Map.unmodifiable(headers),
-       _baseUrl = _normalizeBaseUrl(
-         _validateHttpOrigin(proxyUri, 'proxyUri'),
-       ),
+       _baseUrl = _normalizeBaseUrl(_validateHttpOrigin(proxyUri, 'proxyUri')),
        _socketUri = _validateSocketUri(socketUri ?? defaultSocketUri),
        _httpClient = httpClient ?? http.Client(),
        _ownsHttpClient = httpClient == null {

@@ -1,5 +1,12 @@
 include: package:very_good_analysis/analysis_options.10.3.0.yaml
 
+# pub.dev (pana) formats with the default formatter settings and ignores
+# the `formatter:` section, so override very_good_analysis's
+# `trailing_commas: preserve` to keep local formatting, CI, and the
+# pub.dev score aligned.
+formatter:
+  trailing_commas: automate
+
 analyzer:
   errors:
     public_member_api_docs: error

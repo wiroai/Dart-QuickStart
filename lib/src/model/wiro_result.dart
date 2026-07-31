@@ -147,10 +147,7 @@ final class WiroTaskFailure extends WiroTaskResult {
     final reason = switch (task) {
       WiroTask(status: WiroTaskStatus.cancelled) =>
         WiroTaskFailureReason.cancelled,
-      WiroTask(
-        status: WiroTaskStatus.completed,
-        :final exitCode,
-      )
+      WiroTask(status: WiroTaskStatus.completed, :final exitCode)
           when exitCode != 0 =>
         WiroTaskFailureReason.processFailed,
       _ => WiroTaskFailureReason.unknown,

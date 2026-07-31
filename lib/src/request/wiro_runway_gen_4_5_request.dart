@@ -77,10 +77,7 @@ final class WiroRunwayGen45Request implements WiroModelRequest {
     this.contentModeration,
     this.seed,
   }) : assert(prompt != '', 'prompt cannot be empty'),
-       assert(
-         prompt.length <= 1000,
-         'prompt cannot exceed 1000 characters',
-       ),
+       assert(prompt.length <= 1000, 'prompt cannot exceed 1000 characters'),
        assert(duration > 0, 'duration must be positive'),
        assert(
          seed == null || (seed >= 0 && seed <= 4294967295),

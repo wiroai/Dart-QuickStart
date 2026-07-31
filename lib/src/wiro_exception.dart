@@ -1,10 +1,7 @@
 /// Base class for all exceptions produced by the Wiro SDK.
 sealed class WiroException implements Exception {
   /// Creates a Wiro exception.
-  const WiroException(
-    this.message, {
-    this.cause,
-  });
+  const WiroException(this.message, {this.cause});
 
   /// Human-readable description of the failure.
   final String message;

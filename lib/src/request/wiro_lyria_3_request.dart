@@ -20,10 +20,8 @@ final class WiroLyria3Request implements WiroModelRequest {
   ///       'instrumental only, no vocals',
   /// );
   /// ```
-  const WiroLyria3Request({
-    required this.prompt,
-    this.inputImages,
-  }) : assert(prompt != '', 'prompt cannot be empty');
+  const WiroLyria3Request({required this.prompt, this.inputImages})
+    : assert(prompt != '', 'prompt cannot be empty');
 
   /// Description of the 30-second clip: genre, instruments, mood,
   /// BPM, key, and optional `[Verse]`/`[Chorus]` lyric tags.

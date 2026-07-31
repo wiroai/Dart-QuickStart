@@ -153,10 +153,7 @@ final class WiroGptImage2Request implements WiroModelRequest {
     this.outputCompression,
     this.moderation,
   }) : assert(prompt != '', 'prompt cannot be empty'),
-       assert(
-         prompt.length <= 32000,
-         'prompt cannot exceed 32000 characters',
-       ),
+       assert(prompt.length <= 32000, 'prompt cannot exceed 32000 characters'),
        assert(
          samples >= 1 && samples <= 10,
          'samples must be between 1 and 10',

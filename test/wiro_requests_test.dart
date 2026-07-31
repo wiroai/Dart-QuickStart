@@ -544,10 +544,7 @@ void main() {
         },
       );
 
-      expect(
-        request.toJson()['inputImage'],
-        [isA<WiroUrlInput>()],
-      );
+      expect(request.toJson()['inputImage'], [isA<WiroUrlInput>()]);
     });
   });
 

@@ -22,10 +22,8 @@ sealed class WiroFileInput {
   ///
   /// [fileName] must keep its extension (for example `photo.png`) so Wiro
   /// can serve the upload with the right content type.
-  factory WiroFileInput.bytes(
-    List<int> bytes, {
-    required String fileName,
-  }) = WiroBytesInput;
+  factory WiroFileInput.bytes(List<int> bytes, {required String fileName}) =
+      WiroBytesInput;
 
   /// Value placed in the request JSON.
   ///
