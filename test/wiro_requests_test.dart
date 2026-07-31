@@ -344,6 +344,7 @@ void main() {
         'ratio': '9:16',
         'sound': 'on',
         'prompt': 'A paper boat',
+        'multiPrompt': '',
       });
     });
 

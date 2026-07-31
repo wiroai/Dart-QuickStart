@@ -147,7 +147,7 @@ final class WiroKlingV3Request implements WiroModelRequest {
       'inputImage2': ?lastFrameImage?.map((file) => file.wireValue).toList(),
       'multiShot': multiShot == null ? null : '$multiShot',
       'shotType': ?shotType?.apiValue,
-      'multiPrompt': ?multiPrompt,
+      'multiPrompt': multiPrompt ?? '',
     }..removeWhere((key, value) => value == null);
   }
 }
