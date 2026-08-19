@@ -1,14 +1,17 @@
 <div align="center">
 
+<img src="https://wiro.ai/images/logos/logo/logo.png" alt="Wiro" width="180" />
+
 # Wiro AI SDK for Dart and Flutter
 
-The official type-safe Dart client for discovering and running AI models on
-[Wiro](https://wiro.ai).
+**The official type-safe Dart client for discovering and running AI models on [Wiro](https://wiro.ai)**
 
-[![CI](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml/badge.svg)](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/wiroai/Dart-QuickStart/branch/main/graph/badge.svg)](https://codecov.io/gh/wiroai/Dart-QuickStart)
-[![pub package](https://img.shields.io/pub/v/wiro_client.svg)](https://pub.dev/packages/wiro_client)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/wiroai/Dart-QuickStart/ci.yml?style=for-the-badge&label=CI)](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/codecov/c/github/wiroai/Dart-QuickStart?style=for-the-badge&logo=codecov&logoColor=white)](https://codecov.io/gh/wiroai/Dart-QuickStart)
+[![pub package](https://img.shields.io/pub/v/wiro_client?style=for-the-badge&logo=dart&logoColor=white)](https://pub.dev/packages/wiro_client)
+[![MIT](https://img.shields.io/badge/license-MIT-6f42c1?style=for-the-badge)](LICENSE)
+
+[Docs](https://wiro.ai/docs) · [Models](https://wiro.ai/models) · [Dashboard](https://wiro.ai/panel) · [Create Project](https://wiro.ai/panel/project/new)
 
 </div>
 
@@ -500,3 +503,15 @@ can be extracted from a distributed mobile application.
 ## License
 
 MIT
+
+---
+
+<div align="center">
+
+<img src="https://wiro.ai/images/koala/accent-heavy-koala.png" alt="Wiro" width="80" />
+
+**Built with 💚 by the Wiro team**
+
+[wiro.ai](https://wiro.ai) · [GitHub @wiroai](https://github.com/wiroai)
+
+</div>
