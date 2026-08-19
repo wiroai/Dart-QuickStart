@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:wiro_client/wiro_client.dart';
 
-/// Upscales an image with [WiroFileInput].
+/// Upscales an image with [WiroFileInput] via `Wiro.model`.
 ///
 /// Pass a local path to demonstrate automatic byte upload:
 ///
@@ -32,9 +32,12 @@ Future<void> main(List<String> args) async {
     );
 
     final result = await client.subscribeRequest(
-      Wiro.upscaler(
-        inputImage: inputImage,
-        upscaleFactor: 2,
+      Wiro.model(
+        'google/upscaler',
+        parameters: {
+          'inputImage': [inputImage],
+          'upscaleFactor': 2,
+        },
       ),
     );
 

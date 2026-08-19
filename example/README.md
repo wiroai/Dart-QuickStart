@@ -37,7 +37,7 @@ WIRO_API_KEY=your-api-key dart run bin/upscale_image.dart ./photo.jpg
 | `generate_image.dart` | `Wiro.flux2Pro` + `subscribeRequest` (poll) |
 | `generate_video.dart` | `Wiro.runwayGen45` + WebSocket `onUpdate` |
 | `generate_dynamic.dart` | `getModelSchema` → `validate` → `Wiro.model` |
-| `upscale_image.dart` | `WiroFileInput.url` / `.bytes` + `Wiro.upscaler` |
+| `upscale_image.dart` | `WiroFileInput.url` / `.bytes` + `Wiro.model` |
 
 All scripts handle the sealed `WiroTaskSuccess` / `WiroTaskFailure`
 result. Optional `WIRO_API_SECRET` enables signature authentication.

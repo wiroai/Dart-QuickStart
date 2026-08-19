@@ -143,7 +143,7 @@ class. Typed requests generated from the live Wiro schemas are included for:
 
 | Category | Models |
 | --- | --- |
-| Image | FLUX.2 Pro, GPT Image 2, Nano Banana Pro, Seedream v4, Grok Imagine Image, Google Upscaler |
+| Image | FLUX.2 Pro, GPT Image 2, Nano Banana Pro, Seedream v4, Grok Imagine Image |
 | Video | Runway Gen-4.5, Seedance 2.0, Kling V3, Veo 3.1, Sora 2 Pro, Hailuo 2.3 Fast, Grok Imagine Video |
 | Music | Lyria 3 |
 
@@ -250,12 +250,17 @@ automatically and swaps in the URL before the model runs:
 
 ```dart
 final result = await client.subscribeRequest(
-  Wiro.upscaler(
-    inputImage: WiroFileInput.bytes(
-      await image.readAsBytes(),
-      fileName: 'photo.jpg',
-    ),
-    upscaleFactor: 4,
+  Wiro.model(
+    'google/upscaler',
+    parameters: {
+      'inputImage': [
+        WiroFileInput.bytes(
+          await image.readAsBytes(),
+          fileName: 'photo.jpg',
+        ),
+      ],
+      'upscaleFactor': 4,
+    },
   ),
 );
 

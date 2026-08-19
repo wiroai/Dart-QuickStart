@@ -14,7 +14,6 @@ import 'package:wiro_client/src/request/wiro_runway_gen_4_5_request.dart';
 import 'package:wiro_client/src/request/wiro_seedance_2_0_request.dart';
 import 'package:wiro_client/src/request/wiro_seedream_v4_request.dart';
 import 'package:wiro_client/src/request/wiro_sora_2_pro_request.dart';
-import 'package:wiro_client/src/request/wiro_upscaler_request.dart';
 import 'package:wiro_client/src/request/wiro_veo_3_1_request.dart';
 
 /// Discoverable entry point for every model request in the SDK.
@@ -199,29 +198,6 @@ abstract final class Wiro {
       resolution: resolution,
       inputImages: inputImages,
       aspectRatio: aspectRatio,
-    );
-  }
-
-  /// Upscales images with `google/upscaler` (Imagen Upscale).
-  ///
-  /// - [inputImage]: the image to upscale, as a hosted URL or device
-  ///   bytes. The output resolution (input resolution × [upscaleFactor])
-  ///   must not exceed 17 megapixels.
-  /// - [upscaleFactor]: scaling factor, typically 2, 3, or 4.
-  /// - [outputType]: PNG (default) or JPEG output.
-  /// - [compressionQuality]: JPEG detail level (0-100, default 75);
-  ///   only applies when [outputType] is JPEG.
-  static WiroUpscalerRequest upscaler({
-    required WiroFileInput inputImage,
-    required int upscaleFactor,
-    WiroUpscalerOutputType outputType = WiroUpscalerOutputType.png,
-    int? compressionQuality,
-  }) {
-    return WiroUpscalerRequest(
-      inputImage: [inputImage],
-      upscaleFactor: upscaleFactor,
-      outputType: outputType,
-      compressionQuality: compressionQuality,
     );
   }
 

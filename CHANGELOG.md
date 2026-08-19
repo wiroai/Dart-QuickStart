@@ -1,3 +1,10 @@
+## Unreleased
+
+### Removed
+
+- Remove the typed `Wiro.upscaler` / `WiroUpscalerRequest` binding.
+  Use `Wiro.model('google/upscaler', parameters: ...)` instead.
+
 ## 0.1.0 - 2026-07-24
 
 - Replace string model arguments with the validated

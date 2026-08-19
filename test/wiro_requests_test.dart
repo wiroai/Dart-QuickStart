@@ -480,43 +480,6 @@ void main() {
     });
   });
 
-  group('WiroUpscalerRequest', () {
-    test('serializes typed parameters', () {
-      final request = WiroUpscalerRequest(
-        inputImage: [
-          WiroFileInput.url(Uri.parse('https://example.com/photo.png')),
-        ],
-        upscaleFactor: 4,
-        outputType: WiroUpscalerOutputType.jpeg,
-        compressionQuality: 90,
-      );
-
-      expect(request.model.value, 'google/upscaler');
-      expect(request.toJson(), {
-        'inputImage': ['https://example.com/photo.png'],
-        'upscaleFactor': 4,
-        'outputType': 'jpeg',
-        'compressionQuality': 90,
-      });
-    });
-
-    test('omits the optional compression quality', () {
-      final request = WiroUpscalerRequest(
-        inputImage: [
-          WiroFileInput.url(Uri.parse('https://example.com/photo.png')),
-        ],
-        upscaleFactor: 2,
-        outputType: WiroUpscalerOutputType.png,
-      );
-
-      expect(request.toJson(), {
-        'inputImage': ['https://example.com/photo.png'],
-        'upscaleFactor': 2,
-        'outputType': 'png',
-      });
-    });
-  });
-
   group('WiroDynamicRequest', () {
     test('wraps any model with a dynamic parameter map', () {
       final request = Wiro.model(
@@ -572,10 +535,6 @@ void main() {
           samples: 1,
           resolution: WiroGrokImagineImageResolution.r1k,
         ),
-        Wiro.upscaler(
-          inputImage: WiroFileInput.url(Uri.parse('https://example.com/f.png')),
-          upscaleFactor: 2,
-        ),
         Wiro.runwayGen45(
           prompt: 'p',
           ratio: WiroRunwayGen45Ratio.auto,
@@ -616,7 +575,6 @@ void main() {
         'google/nano-banana-pro',
         'bytedance/seedream-v4',
         'xai/grok-imagine-image',
-        'google/upscaler',
         'runway/gen-4-5',
         'bytedance/seedance-2-0',
         'klingai/kling-v3',
