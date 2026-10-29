@@ -3,7 +3,7 @@ description: >-
   Official Wiro AI SDK for Dart and Flutter with typed model discovery,
   execution, file uploads, task polling, WebSocket streaming, cancellation,
   and structured errors.
-version: 0.1.0
+version: 0.1.1
 homepage: https://wiro.ai
 documentation: https://wiro.ai/docs
 repository: https://github.com/wiroai/Dart-QuickStart
