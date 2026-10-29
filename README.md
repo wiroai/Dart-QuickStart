@@ -6,7 +6,7 @@
 
 Run image, video, audio and LLM models from Dart and Flutter apps with the Wiro AI API: typed requests, live task tracking and file uploads.
 
-[![Dart 3.8+](https://img.shields.io/badge/Dart-3.8%2B-111111?style=for-the-badge&color=111111&logo=dart&logoColor=white)](https://dart.dev) [![Flutter 3.32.8+](https://img.shields.io/badge/Flutter-3.32.8%2B-111111?style=for-the-badge&color=111111&logo=flutter&logoColor=white)](https://flutter.dev) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](LICENSE)
+[![pub package](https://img.shields.io/pub/v/wiro?style=for-the-badge&color=111111&logo=dart&logoColor=white&label=pub)](https://pub.dev/packages/wiro) [![Dart 3.8+](https://img.shields.io/badge/Dart-3.8%2B-111111?style=for-the-badge&color=111111&logo=dart&logoColor=white)](https://dart.dev) [![Flutter 3.32.8+](https://img.shields.io/badge/Flutter-3.32.8%2B-111111?style=for-the-badge&color=111111&logo=flutter&logoColor=white)](https://flutter.dev) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](LICENSE)
 
 [Website](https://wiro.ai) · [Models](https://wiro.ai/models) · [Docs](https://wiro.ai/docs/code-examples) · [Dashboard](https://wiro.ai/panel)
 
@@ -511,7 +511,7 @@ can be extracted from a distributed mobile application.
 | [Wiro-Plugin](https://github.com/wiroai/Wiro-Plugin) | Wiro AI plugin for Cursor, Claude Code, Gemini CLI and Devin |
 | [Swift-QuickStart](https://github.com/wiroai/Swift-QuickStart) | WiroKit, the Wiro AI SDK for iOS |
 | [Kotlin-QuickStart](https://github.com/wiroai/Kotlin-QuickStart) | WiroKit, the Wiro AI SDK for Android |
-| [ReactNative-QuickStart](https://github.com/wiroai/ReactNative-QuickStart) | WiroKit, the Wiro AI SDK for React Native |
+| [ReactNative-QuickStart](https://github.com/wiroai/ReactNative-QuickStart) | Wiro AI SDK for React Native and Expo (`@wiro-ai/wiro-react-native`) |
 | [Swift-Realtime](https://github.com/wiroai/Swift-Realtime) | Realtime voice AI example for iOS |
 | [Kotlin-Realtime](https://github.com/wiroai/Kotlin-Realtime) | Realtime voice AI example for Android |
 | [Dart-Realtime](https://github.com/wiroai/Dart-Realtime) | Realtime voice AI example for Flutter |
