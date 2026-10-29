@@ -1,20 +1,20 @@
-import 'package:wiro_client/src/model/wiro_file_input.dart';
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
-import 'package:wiro_client/src/request/wiro_dynamic_request.dart';
-import 'package:wiro_client/src/request/wiro_flux_2_pro_request.dart';
-import 'package:wiro_client/src/request/wiro_gpt_image_2_request.dart';
-import 'package:wiro_client/src/request/wiro_grok_imagine_image_request.dart';
-import 'package:wiro_client/src/request/wiro_grok_imagine_video_request.dart';
-import 'package:wiro_client/src/request/wiro_hailuo_2_3_fast_request.dart';
-import 'package:wiro_client/src/request/wiro_kling_v3_request.dart';
-import 'package:wiro_client/src/request/wiro_lyria_3_request.dart';
-import 'package:wiro_client/src/request/wiro_nano_banana_pro_request.dart';
-import 'package:wiro_client/src/request/wiro_runway_gen_4_5_request.dart';
-import 'package:wiro_client/src/request/wiro_seedance_2_0_request.dart';
-import 'package:wiro_client/src/request/wiro_seedream_v4_request.dart';
-import 'package:wiro_client/src/request/wiro_sora_2_pro_request.dart';
-import 'package:wiro_client/src/request/wiro_veo_3_1_request.dart';
+import 'package:wiro/src/model/wiro_file_input.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
+import 'package:wiro/src/request/wiro_dynamic_request.dart';
+import 'package:wiro/src/request/wiro_flux_2_pro_request.dart';
+import 'package:wiro/src/request/wiro_gpt_image_2_request.dart';
+import 'package:wiro/src/request/wiro_grok_imagine_image_request.dart';
+import 'package:wiro/src/request/wiro_grok_imagine_video_request.dart';
+import 'package:wiro/src/request/wiro_hailuo_2_3_fast_request.dart';
+import 'package:wiro/src/request/wiro_kling_v3_request.dart';
+import 'package:wiro/src/request/wiro_lyria_3_request.dart';
+import 'package:wiro/src/request/wiro_nano_banana_pro_request.dart';
+import 'package:wiro/src/request/wiro_runway_gen_4_5_request.dart';
+import 'package:wiro/src/request/wiro_seedance_2_0_request.dart';
+import 'package:wiro/src/request/wiro_seedream_v4_request.dart';
+import 'package:wiro/src/request/wiro_sora_2_pro_request.dart';
+import 'package:wiro/src/request/wiro_veo_3_1_request.dart';
 
 /// Discoverable entry point for every model request in the SDK.
 ///

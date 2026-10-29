@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 /// Upscales an image with [WiroFileInput] via `Wiro.model`.
 ///

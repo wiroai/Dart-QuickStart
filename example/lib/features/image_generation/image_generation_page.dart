@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wiro_client/wiro_client.dart';
-import 'package:wiro_client_example/core/constants/project_padding.dart';
-import 'package:wiro_client_example/core/constants/project_spacing.dart';
-import 'package:wiro_client_example/core/widgets/app_cached_image.dart';
-import 'package:wiro_client_example/extension/media_query_extension.dart';
-import 'package:wiro_client_example/extension/theme_extension.dart';
-import 'package:wiro_client_example/features/image_generation/image_generation_state.dart';
+import 'package:wiro/wiro.dart';
+import 'package:wiro_example/core/constants/project_padding.dart';
+import 'package:wiro_example/core/constants/project_spacing.dart';
+import 'package:wiro_example/core/widgets/app_cached_image.dart';
+import 'package:wiro_example/extension/media_query_extension.dart';
+import 'package:wiro_example/extension/theme_extension.dart';
+import 'package:wiro_example/features/image_generation/image_generation_state.dart';
 
 /// Demonstrates text-to-image generation with
 /// [WiroClient.subscribeRequest] and [Wiro.flux2Pro].

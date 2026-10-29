@@ -1,6 +1,6 @@
 # Wiro AI Flutter example
 
-Minimal examples for the local `wiro_client` package: a Flutter
+Minimal examples for the local `wiro` package: a Flutter
 text-to-image app and four CLI scripts that cover the main SDK paths.
 
 ## Flutter app

@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
-import 'package:wiro_client/src/codegen/request_generator.dart';
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/src/codegen/request_generator.dart';
+import 'package:wiro/wiro.dart';
 
 void main() {
   group('generateRequestSource', () {

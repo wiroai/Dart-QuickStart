@@ -16,8 +16,8 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:wiro_client/src/codegen/request_generator.dart';
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/src/codegen/request_generator.dart';
+import 'package:wiro/wiro.dart';
 
 const _usage = '''
 Generates a typed WiroModelRequest class for a Wiro model.

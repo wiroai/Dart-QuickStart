@@ -12,7 +12,7 @@ Run image, video, audio and LLM models from Dart and Flutter apps with the Wiro 
 
 </div>
 
-`wiro_client` is the official Dart package for calling the
+`wiro` is the official Dart package for calling the
 [Wiro AI](https://wiro.ai) model API from Flutter apps, Dart servers and
 command-line tools. It runs any model in the Wiro AI catalog, through typed
 request classes for popular image, video and music models or through
@@ -51,13 +51,13 @@ the first stable release.
 ## Installation
 
 ```bash
-dart pub add wiro_client
+dart pub add wiro
 ```
 
 For Flutter applications:
 
 ```bash
-flutter pub add wiro_client
+flutter pub add wiro
 ```
 
 ## Quick start
@@ -74,7 +74,7 @@ to discover typed factories for popular models as well:
 </p>
 
 ```dart
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 Future<void> main() async {
   final client = WiroClient(apiKey: 'your-api-key');

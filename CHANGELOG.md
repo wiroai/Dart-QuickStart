@@ -1,11 +1,14 @@
-## Unreleased
+## 0.1.0 - 2026-10-29
+
+First release on pub.dev. The package was developed as `wiro_client` and is
+published as `wiro`; import it with `package:wiro/wiro.dart`.
 
 ### Removed
 
 - Remove the typed `Wiro.upscaler` / `WiroUpscalerRequest` binding.
   Use `Wiro.model('google/upscaler', parameters: ...)` instead.
 
-## 0.1.0 - 2026-07-24
+## Development history (unpublished `wiro_client` 0.1.0, 2026-07-24)
 
 - Replace string model arguments with the validated
   `WiroModelId` extension type and expose `WiroModel.modelId`.

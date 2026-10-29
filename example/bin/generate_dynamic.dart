@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 /// Runs any model through [Wiro.model] with a dynamic parameter map.
 ///

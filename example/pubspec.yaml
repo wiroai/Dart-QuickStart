@@ -1,4 +1,4 @@
-name: wiro_client_example
+name: wiro_example
 description: Example Flutter application for the Wiro AI SDK.
 publish_to: 'none'
 version: 1.0.0+1
@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  wiro_client:
+  wiro:
     path: ../
 
 dev_dependencies:

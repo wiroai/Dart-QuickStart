@@ -4,7 +4,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:wiro_client/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_json.dart';
 
 const _malformedJsonHandlerKey = Object();
 

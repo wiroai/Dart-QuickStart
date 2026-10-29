@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wiro_client_example/extension/theme_extension.dart';
+import 'package:wiro_example/extension/theme_extension.dart';
 
 /// Displays a network image through Flutter's in-memory image cache.
 final class AppCachedImage extends StatelessWidget {

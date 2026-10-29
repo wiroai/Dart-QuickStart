@@ -4,18 +4,18 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:wiro_client/src/model/json_reader.dart';
-import 'package:wiro_client/src/model/wiro_file_input.dart';
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
-import 'package:wiro_client/src/model/wiro_model.dart';
-import 'package:wiro_client/src/model/wiro_model_request.dart';
-import 'package:wiro_client/src/model/wiro_result.dart';
-import 'package:wiro_client/src/model/wiro_socket.dart';
-import 'package:wiro_client/src/model/wiro_task.dart';
-import 'package:wiro_client/src/model/wiro_task_update.dart';
-import 'package:wiro_client/src/wiro_exception.dart';
-import 'package:wiro_client/src/wiro_request.dart';
+import 'package:wiro/src/model/json_reader.dart';
+import 'package:wiro/src/model/wiro_file_input.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_model.dart';
+import 'package:wiro/src/model/wiro_model_request.dart';
+import 'package:wiro/src/model/wiro_result.dart';
+import 'package:wiro/src/model/wiro_socket.dart';
+import 'package:wiro/src/model/wiro_task.dart';
+import 'package:wiro/src/model/wiro_task_update.dart';
+import 'package:wiro/src/wiro_exception.dart';
+import 'package:wiro/src/wiro_request.dart';
 
 /// Authentication method used by [WiroClient].
 enum WiroAuthType {

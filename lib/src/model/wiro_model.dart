@@ -1,7 +1,7 @@
-import 'package:wiro_client/src/model/json_reader.dart';
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
-import 'package:wiro_client/src/wiro_exception.dart';
+import 'package:wiro/src/model/json_reader.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
+import 'package:wiro/src/wiro_exception.dart';
 
 /// Field used to sort Wiro model search results.
 ///

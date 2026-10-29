@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:wiro_client/src/model/wiro_socket.dart';
-import 'package:wiro_client/src/model/wiro_task.dart';
+import 'package:wiro/src/model/wiro_socket.dart';
+import 'package:wiro/src/model/wiro_task.dart';
 
 /// Transport used by `WiroClient.subscribe` to track a submitted task.
 enum WiroTaskTrackingMode {

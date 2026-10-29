@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 void main() {
   group('WiroModelId', () {

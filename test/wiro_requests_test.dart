@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 void main() {
   group('WiroFlux2ProRequest', () {

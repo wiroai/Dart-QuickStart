@@ -7,7 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 final _demoModel = WiroModelId('wiro', 'demo');
 final _fluxModel = WiroModelId('black-forest-labs', 'flux-2-pro');
