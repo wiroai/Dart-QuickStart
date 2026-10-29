@@ -65,14 +65,6 @@ flutter pub add wiro
 Any model on Wiro AI runs through `Wiro.model`. Type `Wiro.` in your IDE
 to discover typed factories for popular models as well:
 
-<p align="center">
-  <img
-    src="doc/images/carbon-any-model.png"
-    alt="Run any Wiro AI model with Wiro.model"
-    width="720"
-  />
-</p>
-
 ```dart
 import 'package:wiro/wiro.dart';
 
