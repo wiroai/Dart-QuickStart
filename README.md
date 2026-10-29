@@ -150,7 +150,7 @@ class. Typed requests generated from the live Wiro AI schemas are included for:
 | Category | Models |
 | --- | --- |
 | Image | FLUX.2 Pro, GPT Image 2, Nano Banana Pro, Seedream v4, Grok Imagine Image |
-| Video | Runway Gen-4.5, Seedance 2.0, Kling V3, Veo 3.1, Sora 2 Pro, Hailuo 2.3 Fast, Grok Imagine Video |
+| Video | Runway Gen-4.5, Seedance 2.0, Kling V3, Veo 3.1, Hailuo 2.3 Fast, Grok Imagine Video |
 | Music | Lyria 3 |
 
 Any other model runs through `Wiro.model` as shown below. `runRequest`
@@ -207,8 +207,11 @@ Use the lower-level API when submission and tracking must be managed separately:
 
 ```dart
 final run = await client.runModel(
-  WiroModelId('openai', 'sora-2'),
-  parameters: {'prompt': 'A cinematic mountain lake'},
+  WiroModelId('google', 'veo3-1'),
+  parameters: {
+    'prompt': 'A cinematic mountain lake',
+    'durationSeconds': '4',
+  },
   callbackUrl: Uri.parse('https://example.com/wiro-webhook'),
 );
 final taskToken = run.taskToken;
@@ -227,12 +230,15 @@ Get the accepted parameters before running a model:
 
 ```dart
 final schema = await client.getModelSchema(
-  WiroModelId('openai', 'sora-2'),
+  WiroModelId('google', 'veo3-1'),
 );
 for (final parameter in schema.parameters) {
   print('${parameter.id}: ${parameter.runtimeType}');
 }
-schema.validate({'prompt': 'A cinematic mountain lake'});
+schema.validate({
+  'prompt': 'A cinematic mountain lake',
+  'durationSeconds': '4',
+});
 ```
 
 Select, number, and text parameter variants expose typed `defaultValue`
@@ -249,7 +255,7 @@ automatically and swaps in the URL before the model runs:
 ```dart
 final result = await client.subscribeRequest(
   Wiro.model(
-    'google/upscaler',
+    'wiroai/flux-upscaler',
     parameters: {
       'inputImage': [
         WiroFileInput.bytes(
@@ -257,7 +263,6 @@ final result = await client.subscribeRequest(
           fileName: 'photo.jpg',
         ),
       ],
-      'upscaleFactor': 4,
     },
   ),
 );
@@ -269,13 +274,13 @@ The same works inside dynamic parameter maps:
 
 ```dart
 final run = await client.runModel(
-  WiroModelId('openai', 'sora-2'),
+  WiroModelId('google', 'veo3-1'),
   parameters: {
     'prompt': 'Animate this image',
     'inputImage': [
       WiroFileInput.url(Uri.parse('https://example.com/input.jpg')),
     ],
-    'seconds': '4',
+    'durationSeconds': '4',
   },
 );
 ```

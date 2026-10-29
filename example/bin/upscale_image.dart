@@ -33,10 +33,9 @@ Future<void> main(List<String> args) async {
 
     final result = await client.subscribeRequest(
       Wiro.model(
-        'google/upscaler',
+        'wiroai/flux-upscaler',
         parameters: {
           'inputImage': [inputImage],
-          'upscaleFactor': 2,
         },
       ),
     );

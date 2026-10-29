@@ -397,25 +397,6 @@ void main() {
     });
   });
 
-  group('WiroSora2ProRequest', () {
-    test('serializes typed parameters', () {
-      const request = WiroSora2ProRequest(
-        prompt: 'A whale breaching',
-        seconds: 12,
-        resolution: WiroSora2ProResolution.r1024p,
-        ratio: WiroSora2ProRatio.auto,
-      );
-
-      expect(request.model.value, 'openai/sora-2-pro');
-      expect(request.toJson(), {
-        'prompt': 'A whale breaching',
-        'seconds': '12',
-        'resolution': '1024p',
-        'ratio': 'auto',
-      });
-    });
-  });
-
   group('WiroHailuo23FastRequest', () {
     test('serializes typed parameters', () {
       final request = WiroHailuo23FastRequest(
@@ -553,7 +534,6 @@ void main() {
           sound: false,
         ),
         Wiro.veo31(durationSeconds: 4),
-        Wiro.sora2Pro(prompt: 'p', seconds: 4),
         Wiro.hailuo23Fast(
           inputImages: [
             WiroFileInput.url(Uri.parse('https://example.com/f.png')),
@@ -579,7 +559,6 @@ void main() {
         'bytedance/seedance-2-0',
         'klingai/kling-v3',
         'google/veo3-1',
-        'openai/sora-2-pro',
         'minimax/hailuo-2-3-fast',
         'xai/grok-imagine-video',
         'google/lyria-3',

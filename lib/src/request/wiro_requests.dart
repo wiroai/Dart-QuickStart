@@ -13,7 +13,6 @@ import 'package:wiro/src/request/wiro_nano_banana_pro_request.dart';
 import 'package:wiro/src/request/wiro_runway_gen_4_5_request.dart';
 import 'package:wiro/src/request/wiro_seedance_2_0_request.dart';
 import 'package:wiro/src/request/wiro_seedream_v4_request.dart';
-import 'package:wiro/src/request/wiro_sora_2_pro_request.dart';
 import 'package:wiro/src/request/wiro_veo_3_1_request.dart';
 
 /// Discoverable entry point for every model request in the SDK.
@@ -343,29 +342,6 @@ abstract final class Wiro {
       resolution: resolution,
       negativePrompt: negativePrompt,
       seed: seed,
-    );
-  }
-
-  /// Generates videos with `openai/sora-2-pro`.
-  ///
-  /// - [prompt]: text prompt for the video. Cannot be empty.
-  /// - [seconds]: 4, 8, 12, 16, or 20 seconds.
-  /// - [inputImages]: optional input image URLs.
-  /// - [resolution]: 720p, 1024p, or 1080p.
-  /// - [ratio]: 16:9, 9:16, or auto (follows the input image).
-  static WiroSora2ProRequest sora2Pro({
-    required String prompt,
-    required int seconds,
-    List<WiroFileInput>? inputImages,
-    WiroSora2ProResolution? resolution,
-    WiroSora2ProRatio? ratio,
-  }) {
-    return WiroSora2ProRequest(
-      prompt: prompt,
-      seconds: seconds,
-      inputImages: inputImages,
-      resolution: resolution,
-      ratio: ratio,
     );
   }
 
