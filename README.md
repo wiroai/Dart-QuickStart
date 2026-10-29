@@ -6,7 +6,7 @@
 
 Run image, video, audio and LLM models from Dart and Flutter apps with the Wiro AI API: typed requests, live task tracking and file uploads.
 
-[![pub package](https://img.shields.io/pub/v/wiro?style=for-the-badge&color=111111&logo=dart&logoColor=white&label=pub)](https://pub.dev/packages/wiro) [![Dart 3.8+](https://img.shields.io/badge/Dart-3.8%2B-111111?style=for-the-badge&color=111111&logo=dart&logoColor=white)](https://dart.dev) [![Flutter 3.32.8+](https://img.shields.io/badge/Flutter-3.32.8%2B-111111?style=for-the-badge&color=111111&logo=flutter&logoColor=white)](https://flutter.dev) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](LICENSE)
+[![pub package](https://img.shields.io/pub/v/wiro?style=for-the-badge&color=111111&logo=dart&logoColor=white&label=pub)](https://pub.dev/packages/wiro) [![Dart 3.8+](https://img.shields.io/badge/Dart-3.8%2B-111111?style=for-the-badge&color=111111&logo=dart&logoColor=white)](https://dart.dev) [![Flutter 3.32.8+](https://img.shields.io/badge/Flutter-3.32.8%2B-111111?style=for-the-badge&color=111111&logo=flutter&logoColor=white)](https://flutter.dev) [![CI](https://img.shields.io/github/actions/workflow/status/wiroai/Dart-QuickStart/ci.yml?branch=main&style=for-the-badge&color=111111&label=CI&logo=githubactions&logoColor=white)](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](LICENSE)
 
 [Website](https://wiro.ai) · [Models](https://wiro.ai/models) · [Docs](https://wiro.ai/docs/code-examples) · [Dashboard](https://wiro.ai/panel)
 
