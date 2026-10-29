@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://wiro.ai/images/favicon/icon-512x512.png" alt="Wiro AI" width="100">
+<img src="https://raw.githubusercontent.com/wiroai/Dart-QuickStart/main/.github/assets/wiro-logo.png" alt="Wiro AI" width="240">
 
 # Wiro AI SDK for Dart and Flutter
 
