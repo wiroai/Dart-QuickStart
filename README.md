@@ -1,19 +1,24 @@
 <div align="center">
 
-<img src="https://wiro.ai/images/logos/logo/logo.png" alt="Wiro" width="180" />
+<img src="https://wiro.ai/images/favicon/icon-512x512.png" alt="Wiro AI" width="100">
 
 # Wiro AI SDK for Dart and Flutter
 
-**The official type-safe Dart client for discovering and running AI models on [Wiro](https://wiro.ai)**
+Run image, video, audio and LLM models from Dart and Flutter apps with the Wiro AI API: typed requests, live task tracking and file uploads.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/wiroai/Dart-QuickStart/ci.yml?style=for-the-badge&label=CI)](https://github.com/wiroai/Dart-QuickStart/actions/workflows/ci.yml)
-[![codecov](https://img.shields.io/codecov/c/github/wiroai/Dart-QuickStart?style=for-the-badge&logo=codecov&logoColor=white)](https://codecov.io/gh/wiroai/Dart-QuickStart)
-[![pub package](https://img.shields.io/pub/v/wiro_client?style=for-the-badge&logo=dart&logoColor=white)](https://pub.dev/packages/wiro_client)
-[![MIT](https://img.shields.io/badge/license-MIT-6f42c1?style=for-the-badge)](LICENSE)
+[![Dart 3.8+](https://img.shields.io/badge/Dart-3.8%2B-111111?style=for-the-badge&color=111111&logo=dart&logoColor=white)](https://dart.dev) [![Flutter 3.32.8+](https://img.shields.io/badge/Flutter-3.32.8%2B-111111?style=for-the-badge&color=111111&logo=flutter&logoColor=white)](https://flutter.dev) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](LICENSE)
 
-[Docs](https://wiro.ai/docs) · [Models](https://wiro.ai/models) · [Dashboard](https://wiro.ai/panel) · [Create Project](https://wiro.ai/panel/project/new)
+[Website](https://wiro.ai) · [Models](https://wiro.ai/models) · [Docs](https://wiro.ai/docs/code-examples) · [Dashboard](https://wiro.ai/panel)
 
 </div>
+
+`wiro_client` is the official Dart package for calling the
+[Wiro AI](https://wiro.ai) model API from Flutter apps, Dart servers and
+command-line tools. It runs any model in the Wiro AI catalog, through typed
+request classes for popular image, video and music models or through
+`Wiro.model` with a parameter map, and follows each task by polling or over a
+WebSocket. The `example` folder has a Flutter text-to-image app and four
+command-line scripts.
 
 ## Features
 
@@ -37,7 +42,7 @@
 
 - Dart `3.8.0` or newer
 - Flutter `3.32.8` or newer when used in a Flutter application
-- A [Wiro project and API key](https://wiro.ai/panel/project/new)
+- A [Wiro AI project and API key](https://wiro.ai/panel/project/new)
 
 The core package is pure Dart and supports Dart VM, Android, iOS, web,
 macOS, Windows, and Linux. Version `0.x` may receive API refinements before
@@ -57,13 +62,13 @@ flutter pub add wiro_client
 
 ## Quick start
 
-Any model on Wiro runs through `Wiro.model`. Type `Wiro.` in your IDE
+Any model on Wiro AI runs through `Wiro.model`. Type `Wiro.` in your IDE
 to discover typed factories for popular models as well:
 
 <p align="center">
   <img
     src="doc/images/carbon-any-model.png"
-    alt="Run any Wiro model with Wiro.model"
+    alt="Run any Wiro AI model with Wiro.model"
     width="720"
   />
 </p>
@@ -101,15 +106,16 @@ Future<void> main() async {
 | Find a model | `client.searchModels(search: '...')` or `client.explore()` |
 | See what parameters a model takes | `client.getModelSchema(...)`, then `schema.validate(params)` |
 | Watch progress | `onUpdate:` callback, or `client.subscribeStream(...)` |
-| Send a device file to a model | `WiroFileInput.bytes(bytes, fileName: '...')` — uploaded automatically |
+| Send a device file to a model | `WiroFileInput.bytes(bytes, fileName: '...')`, uploaded automatically |
 | Cancel or stop a task | `client.cancelTask(...)` / `client.killTask(...)` |
 | Keep API keys off the device | `WiroClient.proxied(proxyUri: ...)` |
 | Handle failure | `switch` on `WiroTaskSuccess` / `WiroTaskFailure(:reason)` |
 
 ## Run a model with a typed request
 
-Popular models ship with typed request classes, so required parameters,
-value ranges, and select options are checked at compile time:
+Popular models ship with typed request classes, so required parameters and
+select options are checked at compile time and value ranges are checked by
+assertions in debug builds:
 
 <p align="center">
   <img
@@ -139,7 +145,7 @@ switch (result) {
 
 Type `Wiro.` in your IDE to list every model with a typed request;
 each factory (such as `Wiro.flux2Pro`) returns the matching request
-class. Typed requests generated from the live Wiro schemas are included for:
+class. Typed requests generated from the live Wiro AI schemas are included for:
 
 | Category | Models |
 | --- | --- |
@@ -150,7 +156,7 @@ class. Typed requests generated from the live Wiro schemas are included for:
 Any other model runs through `Wiro.model` as shown below. `runRequest`
 is the non-tracking equivalent of `subscribeRequest`.
 
-Typed requests are generated from the live Wiro model schemas with an
+Typed requests are generated from the live Wiro AI model schemas with an
 internal tool, so coverage grows with SDK releases. Missing a model?
 [Open an issue](https://github.com/wiroai/Dart-QuickStart/issues) to request a
 typed binding, or implement `WiroModelRequest` yourself in the meantime.
@@ -180,7 +186,7 @@ final result = await client.subscribeRequest(
         ),
       ):
         print('${update.statusValue}: ${progress.percentage}');
-      case WiroTaskSnapshotUpdate() || WiroTaskBinaryUpdate():
+      case _:
         print(update.statusValue);
     }
   },
@@ -213,7 +219,7 @@ final task = await client.waitForTask(taskToken);
 ```
 
 Server-derived model IDs, task IDs, task tokens, and socket event IDs are
-nullable when Wiro omits or returns invalid identifier fields. Identifiers
+nullable when the Wiro AI API omits or returns invalid identifier fields. Identifiers
 created explicitly with `WiroModelId`, `WiroTaskId`, or `WiroTaskToken` remain
 strictly validated.
 
@@ -237,16 +243,8 @@ defaults remain available through `parameter.raw['default']`.
 
 File parameters take `WiroFileInput` values. Wrap an already-hosted file
 with `WiroFileInput.url`, or pass raw device bytes (a gallery pick, a
-camera shot) with `WiroFileInput.bytes` — the client uploads them
+camera shot) with `WiroFileInput.bytes`. The client uploads the bytes
 automatically and swaps in the URL before the model runs:
-
-<p align="center">
-  <img
-    src="doc/images/carbon-file-input.png"
-    alt="Device file upload with WiroFileInput.bytes"
-    width="720"
-  />
-</p>
 
 ```dart
 final result = await client.subscribeRequest(
@@ -291,19 +289,12 @@ supported runtimes.
 
 Pass `onUpdate` or use WebSocket tracking to watch a run live:
 
-<p align="center">
-  <img
-    src="doc/images/carbon-progress.png"
-    alt="WebSocket task progress with onUpdate"
-    width="720"
-  />
-</p>
-
 ```dart
 final result = await client.subscribeRequest(
   Wiro.runwayGen45(
-    promptText: 'A drone shot over misty mountains',
+    prompt: 'A drone shot over misty mountains',
     ratio: WiroRunwayGen45Ratio.landscape16x9,
+    duration: 2,
   ),
   trackingMode: WiroTaskTrackingMode.webSocket,
   onUpdate: (update) {
@@ -351,7 +342,7 @@ await for (final event in client.watchTaskSocket(taskToken)) {
 }
 ```
 
-The socket uses Wiro's `task_info` protocol and closes after
+The socket uses the Wiro AI `task_info` protocol and closes after
 `task_postprocess_end` or `task_cancel`. Binary frames are preserved for
 realtime audio models.
 
@@ -437,7 +428,8 @@ try {
 }
 ```
 
-Wiro can report application-level failures with HTTP 2xx and `result: false`.
+The Wiro AI API can report application-level failures with HTTP 2xx and
+`result: false`.
 The SDK converts these responses to `WiroApiResultException`.
 
 ## Authentication
@@ -458,9 +450,9 @@ final client = WiroClient(
 ```
 
 The configured credentials must match the authentication type selected for
-the Wiro project.
+the Wiro AI project.
 
-Never embed long-lived Wiro credentials in a production mobile application.
+Never embed long-lived Wiro AI credentials in a production mobile application.
 Use a proxied client so credentials stay on your backend:
 
 ```dart
@@ -470,26 +462,32 @@ final client = WiroClient.proxied(
 );
 ```
 
-The device sends requests to your proxy without any Wiro headers. The proxy
-must accept the same REST paths as the Wiro API, attach `x-api-key` (and
+The device sends requests to your proxy without any Wiro AI auth headers. The proxy
+must accept the same REST paths as the Wiro AI API, attach `x-api-key` (and
 signature headers when required), and forward the request to
 `https://api.wiro.ai/v1`. Task WebSocket streams still connect directly to
-Wiro because they authenticate with per-task tokens instead of API
+Wiro AI because they authenticate with per-task tokens instead of API
 credentials.
 
 ## Examples
 
 The `example` directory contains:
 
-- A Flutter iOS and Android model explorer
+- A Flutter iOS and Android text-to-image app built on `Wiro.flux2Pro`
 - `bin/generate_image.dart` using Flux 2 Pro
-- `bin/generate_video.dart` using Sora 2 with streamed task progress
+- `bin/generate_video.dart` using Runway Gen-4.5 with streamed task progress
+- `bin/generate_dynamic.dart` running a model through `Wiro.model` after
+  `schema.validate`
+- `bin/upscale_image.dart` sending a file input from a public URL or local
+  bytes
 
 ```bash
 cd example
 
 WIRO_API_KEY=your-api-key dart run bin/generate_image.dart
 WIRO_API_KEY=your-api-key dart run bin/generate_video.dart
+WIRO_API_KEY=your-api-key dart run bin/generate_dynamic.dart
+WIRO_API_KEY=your-api-key dart run bin/upscale_image.dart ./photo.jpg
 
 flutter run --dart-define=WIRO_API_KEY=your-api-key
 ```
@@ -499,24 +497,36 @@ can be extracted from a distributed mobile application.
 
 ## Documentation
 
-- [Wiro documentation](https://wiro.ai/docs)
-- [Available models](https://wiro.ai/models)
-- [API reference](https://pub.dev/documentation/wiro_client/latest/)
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
+- Product docs: [https://wiro.ai/docs](https://wiro.ai/docs)
+- Available models: [https://wiro.ai/models](https://wiro.ai/models)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Security policy: [`SECURITY.md`](SECURITY.md)
+- Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+## More from Wiro AI
+
+| Repository | What it is |
+| --- | --- |
+| [Wiro-MCP](https://github.com/wiroai/Wiro-MCP) | Official MCP server for Wiro AI (`@wiro-ai/wiro-mcp`) |
+| [Wiro-Plugin](https://github.com/wiroai/Wiro-Plugin) | Wiro AI plugin for Cursor, Claude Code, Gemini CLI and Devin |
+| [Swift-QuickStart](https://github.com/wiroai/Swift-QuickStart) | WiroKit, the Wiro AI SDK for iOS |
+| [Kotlin-QuickStart](https://github.com/wiroai/Kotlin-QuickStart) | WiroKit, the Wiro AI SDK for Android |
+| [ReactNative-QuickStart](https://github.com/wiroai/ReactNative-QuickStart) | WiroKit, the Wiro AI SDK for React Native |
+| [Swift-Realtime](https://github.com/wiroai/Swift-Realtime) | Realtime voice AI example for iOS |
+| [Kotlin-Realtime](https://github.com/wiroai/Kotlin-Realtime) | Realtime voice AI example for Android |
+| [Dart-Realtime](https://github.com/wiroai/Dart-Realtime) | Realtime voice AI example for Flutter |
+| [ReactNative-Realtime](https://github.com/wiroai/ReactNative-Realtime) | Realtime voice AI example for React Native |
+| [n8n-nodes-wiroai](https://github.com/wiroai/n8n-nodes-wiroai) | Wiro AI nodes for n8n |
+| [Wiro-Docs](https://github.com/wiroai/Wiro-Docs) | Source of the Wiro AI API docs |
+
+[Website](https://wiro.ai) · [Models](https://wiro.ai/models) · [Docs](https://wiro.ai/docs) · [X](https://x.com/wiroai)
 
 ## License
 
-MIT
-
----
+MIT. See [LICENSE](LICENSE).
 
 <div align="center">
 
-<img src="https://wiro.ai/images/koala/accent-heavy-koala.png" alt="Wiro" width="80" />
-
-**Built with 💚 by the Wiro team**
-
-[wiro.ai](https://wiro.ai) · [GitHub @wiroai](https://github.com/wiroai)
+<img src="https://wiro.ai/images/koala/accent-heavy-koala.png" alt="Wiro AI koala mascot" width="80">
 
 </div>
