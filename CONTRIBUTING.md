@@ -75,7 +75,6 @@ Before the first release, maintainers must configure:
 
 - The `pub.dev` GitHub environment with required reviewers
 - A pub.dev trusted publisher for `wiroai/Dart-QuickStart`
-- Codecov OIDC access for the repository
 - Read-only `WIRO_API_KEY` and optional `WIRO_API_SECRET` repository secrets
 - Branch protection requiring the CI workflow
 
