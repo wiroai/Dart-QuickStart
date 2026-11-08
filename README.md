@@ -492,6 +492,14 @@ flutter run --dart-define=WIRO_API_KEY=your-api-key
 The `dart-define` approach is only for local demonstration. Build-time values
 can be extracted from a distributed mobile application.
 
+## Agent skill
+
+This repository includes an agent skill, `wiro-flutter`, in [`skills/wiro-flutter/SKILL.md`](./skills/wiro-flutter/SKILL.md). It shows coding agents such as Claude Code, Codex and Cursor how to use this SDK in Flutter and Dart apps. Add it to your agent with:
+
+```bash
+npx skills add wiroai/Dart-QuickStart --skill wiro-flutter
+```
+
 ## Documentation
 
 - Product docs: [https://wiro.ai/docs](https://wiro.ai/docs)
