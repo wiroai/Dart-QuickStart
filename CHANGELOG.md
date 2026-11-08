@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.2 - 2026-11-07
 
 - `WiroModel.dynamicPrice` reads `dynamicprice` as JSON text from both
   `Tool/List` and `Tool/Detail`.
