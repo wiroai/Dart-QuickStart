@@ -88,7 +88,7 @@ final class WiroModel {
       samples: JsonReader.stringList(json['samples']),
       computingTime: JsonReader.string(json['computingtime']),
       approximateCost: JsonReader.string(json['approximatelycost']),
-      dynamicPrice: JsonReader.string(json['dynamicprice']),
+      dynamicPrice: JsonReader.jsonText(json['dynamicprice']),
       cps: JsonReader.string(json['cps']),
       taskStats: json['taskstat'] == null
           ? null
@@ -133,7 +133,11 @@ final class WiroModel {
   /// Approximate cost reported by Wiro.
   final String? approximateCost;
 
-  /// Dynamic pricing descriptor.
+  /// JSON text of the model's pricing tiers, such as
+  /// `[{"inputs":{},"price":0.09,"priceMethod":"cpr"}]`.
+  ///
+  /// Read from the `dynamicprice` field of both `Tool/List` and
+  /// `Tool/Detail` responses.
   final String? dynamicPrice;
 
   /// Cost-per-second descriptor.

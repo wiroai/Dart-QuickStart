@@ -26,6 +26,15 @@ final class JsonReader {
     };
   }
 
+  /// Returns [value] as JSON text: lists and maps are encoded as compact
+  /// JSON, and other values are read like [string].
+  static String? jsonText(Object? value) {
+    return switch (value) {
+      List<Object?>() || Map<Object?, Object?>() => jsonEncode(value),
+      _ => string(value),
+    };
+  }
+
   static bool boolean(Object? value, {bool fallback = false}) {
     return switch (value) {
       final bool result => result,

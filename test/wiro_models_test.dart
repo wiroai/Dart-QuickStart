@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:test/test.dart';
 import 'package:wiro/wiro.dart';
 
@@ -83,6 +85,26 @@ void main() {
         DateTime.fromMillisecondsSinceEpoch(1774007585000, isUtc: true),
       );
       expect(model.tags, ['featured']);
+    });
+
+    test('keeps the dynamicprice JSON string from Tool/List', () {
+      const tiers = '[{"inputs":{},"price":0.09,"priceMethod":"cpr"}]';
+
+      final model = WiroModel.fromJson(const {'dynamicprice': tiers});
+
+      expect(model.dynamicPrice, tiers);
+    });
+
+    test('encodes the dynamicprice array from Tool/Detail as JSON text', () {
+      const tiers = [
+        {'inputs': <String, Object?>{}, 'price': 0.039, 'priceMethod': 'cpo'},
+      ];
+
+      final schema = WiroModelSchema.fromJson(const {'dynamicprice': tiers});
+      final dynamicPrice = schema.model.dynamicPrice;
+
+      expect(dynamicPrice, '[{"inputs":{},"price":0.039,"priceMethod":"cpo"}]');
+      expect(jsonDecode(dynamicPrice!), tiers);
     });
 
     test('returns no model identifier when slug fields are absent', () {

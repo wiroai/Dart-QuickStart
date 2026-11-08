@@ -1,3 +1,8 @@
+## Unreleased
+
+- `WiroModel.dynamicPrice` reads `dynamicprice` as JSON text from both
+  `Tool/List` and `Tool/Detail`.
+
 ## 0.1.1 - 2026-10-29
 
 - The typed `Wiro.sora2Pro` / `WiroSora2ProRequest` binding is removed
