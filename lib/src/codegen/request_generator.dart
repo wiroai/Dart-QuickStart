@@ -1,10 +1,10 @@
 /// Generates typed `WiroModelRequest` source files from live model
-/// schemas. Used by the `wiro_client:generate` command line tool; not
+/// schemas. Used by the `tool/generate.dart` command line tool; not
 /// part of the public SDK API.
 library;
 
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_model.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_model.dart';
 
 /// Generates a complete Dart source file containing a typed request
 /// class (and its enums) for the model described by [schema].
@@ -40,7 +40,7 @@ String generateRequestSource({
     ..writeln('// Schema snapshot: $date')
     ..writeln('// Regenerate: dart run tool/generate.dart ${modelId.value}')
     ..writeln(_skippedComment(skipped))
-    ..writeln("import 'package:wiro_client/wiro_client.dart';")
+    ..writeln("import 'package:wiro/wiro.dart';")
     ..writeln();
 
   for (final field in ordered) {

@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:wiro_client/src/model/json_reader.dart';
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
-import 'package:wiro_client/src/model/wiro_task.dart';
+import 'package:wiro/src/model/json_reader.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_task.dart';
 
 /// Base type for messages received from a Wiro task WebSocket.
 sealed class WiroSocketEvent {

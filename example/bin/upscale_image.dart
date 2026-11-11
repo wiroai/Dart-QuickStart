@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wiro_client/wiro_client.dart';
+import 'package:wiro/wiro.dart';
 
 /// Upscales an image with [WiroFileInput] via `Wiro.model`.
 ///
@@ -33,10 +33,9 @@ Future<void> main(List<String> args) async {
 
     final result = await client.subscribeRequest(
       Wiro.model(
-        'google/upscaler',
+        'wiroai/flux-upscaler',
         parameters: {
           'inputImage': [inputImage],
-          'upscaleFactor': 2,
         },
       ),
     );

@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   quality:
@@ -68,15 +67,6 @@ jobs:
             --packages=.dart_tool/package_config.json \
             --report-on=lib
           dart run tool/check_coverage.dart coverage/lcov.info 90
-
-      - name: Upload coverage
-        if: matrix.flutter == '3.44.7'
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac
-        # v5
-        with:
-          files: coverage/lcov.info
-          fail_ci_if_error: true
-          use_oidc: true
 
       - name: Validate package
         if: matrix.flutter == '3.44.7'

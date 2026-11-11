@@ -1,9 +1,9 @@
-name: wiro_client
+name: wiro
 description: >-
   Official Wiro AI SDK for Dart and Flutter with typed model discovery,
   execution, file uploads, task polling, WebSocket streaming, cancellation,
   and structured errors.
-version: 0.1.0
+version: 0.1.2
 homepage: https://wiro.ai
 documentation: https://wiro.ai/docs
 repository: https://github.com/wiroai/Dart-QuickStart
@@ -25,4 +25,7 @@ dependencies:
 dev_dependencies:
   coverage: ^1.15.1
   test: ^1.25.6
-  very_good_analysis: ^9.0.0
+  # Dart 3.8 resolves 9.0.0 and newer SDKs resolve up to 11.x. Every one of
+  # these ships the analysis_options.9.0.0.yaml rule set unchanged, so the
+  # lints stay the same on each SDK in the CI matrix.
+  very_good_analysis: '>=9.0.0 <12.0.0'

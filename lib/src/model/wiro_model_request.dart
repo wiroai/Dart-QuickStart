@@ -1,5 +1,5 @@
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
 
 /// A model paired with its typed, serializable parameters.
 ///

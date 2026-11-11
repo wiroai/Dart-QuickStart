@@ -1,11 +1,26 @@
-## Unreleased
+## 0.1.2 - 2026-11-07
+
+- `WiroModel.dynamicPrice` reads `dynamicprice` as JSON text from both
+  `Tool/List` and `Tool/Detail`.
+
+## 0.1.1 - 2026-10-29
+
+- The typed `Wiro.sora2Pro` / `WiroSora2ProRequest` binding is removed
+  because `openai/sora-2-pro` is not in the public Wiro AI catalog.
+- The README and example samples now use `google/veo3-1` and
+  `wiroai/flux-upscaler`.
+
+## 0.1.0 - 2026-10-29
+
+First release on pub.dev. The package was developed as `wiro_client` and is
+published as `wiro`; import it with `package:wiro/wiro.dart`.
 
 ### Removed
 
 - Remove the typed `Wiro.upscaler` / `WiroUpscalerRequest` binding.
   Use `Wiro.model('google/upscaler', parameters: ...)` instead.
 
-## 0.1.0 - 2026-07-24
+## Development history (unpublished `wiro_client` 0.1.0, 2026-07-24)
 
 - Replace string model arguments with the validated
   `WiroModelId` extension type and expose `WiroModel.modelId`.

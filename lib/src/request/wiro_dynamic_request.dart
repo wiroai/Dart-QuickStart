@@ -1,6 +1,6 @@
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
-import 'package:wiro_client/src/model/wiro_model_request.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_model_request.dart';
 
 /// A request for any Wiro model, with parameters supplied as a map.
 ///

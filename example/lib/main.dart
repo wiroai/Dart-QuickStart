@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wiro_client_example/features/image_generation/image_generation_page.dart';
+import 'package:wiro_example/features/image_generation/image_generation_page.dart';
 
 void main() {
   const apiKey = String.fromEnvironment('WIRO_API_KEY');

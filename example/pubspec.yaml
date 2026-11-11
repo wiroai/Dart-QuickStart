@@ -1,4 +1,4 @@
-name: wiro_client_example
+name: wiro_example
 description: Example Flutter application for the Wiro AI SDK.
 publish_to: 'none'
 version: 1.0.0+1
@@ -9,13 +9,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  wiro_client:
+  wiro:
     path: ../
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  very_good_analysis: ^9.0.0
+  # Dart 3.8 resolves 9.0.0 and newer SDKs resolve up to 11.x. Every one of
+  # these ships the analysis_options.9.0.0.yaml rule set unchanged, so the
+  # lints stay the same on each SDK in the CI matrix.
+  very_good_analysis: '>=9.0.0 <12.0.0'
 
 flutter:
   uses-material-design: true

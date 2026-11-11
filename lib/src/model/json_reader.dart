@@ -4,7 +4,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:wiro_client/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_json.dart';
 
 const _malformedJsonHandlerKey = Object();
 
@@ -23,6 +23,15 @@ final class JsonReader {
       final String text when text.isNotEmpty => text,
       final num number => '$number',
       _ => null,
+    };
+  }
+
+  /// Returns [value] as JSON text: lists and maps are encoded as compact
+  /// JSON, and other values are read like [string].
+  static String? jsonText(Object? value) {
+    return switch (value) {
+      List<Object?>() || Map<Object?, Object?>() => jsonEncode(value),
+      _ => string(value),
     };
   }
 

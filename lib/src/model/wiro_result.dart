@@ -1,8 +1,8 @@
-import 'package:wiro_client/src/model/json_reader.dart';
-import 'package:wiro_client/src/model/wiro_identifier.dart';
-import 'package:wiro_client/src/model/wiro_json.dart';
-import 'package:wiro_client/src/model/wiro_model.dart';
-import 'package:wiro_client/src/model/wiro_task.dart';
+import 'package:wiro/src/model/json_reader.dart';
+import 'package:wiro/src/model/wiro_identifier.dart';
+import 'package:wiro/src/model/wiro_json.dart';
+import 'package:wiro/src/model/wiro_model.dart';
+import 'package:wiro/src/model/wiro_task.dart';
 
 /// An error included in a Wiro API response.
 final class WiroApiError {

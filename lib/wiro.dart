@@ -39,7 +39,6 @@ export 'src/request/wiro_requests.dart';
 export 'src/request/wiro_runway_gen_4_5_request.dart';
 export 'src/request/wiro_seedance_2_0_request.dart';
 export 'src/request/wiro_seedream_v4_request.dart';
-export 'src/request/wiro_sora_2_pro_request.dart';
 export 'src/request/wiro_veo_3_1_request.dart';
 export 'src/wiro_client.dart';
 export 'src/wiro_exception.dart';

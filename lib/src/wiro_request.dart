@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:wiro_client/src/wiro_exception.dart';
+import 'package:wiro/src/wiro_exception.dart';
 
 /// Allows a caller to cancel an in-flight Wiro request.
 final class WiroCancellationToken {
