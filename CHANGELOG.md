@@ -1,3 +1,8 @@
+## 0.1.3 - 2026-11-12
+
+- README only: the More from Wiro AI table lists the current Wiro AI
+  repositories. The SDK is the same as in 0.1.2.
+
 ## 0.1.2 - 2026-11-07
 
 - `WiroModel.dynamicPrice` reads `dynamicprice` as JSON text from both
